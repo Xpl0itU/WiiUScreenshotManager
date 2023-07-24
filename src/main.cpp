@@ -7,7 +7,6 @@
 #include <coreinit/memory.h>
 #include <filesystem>
 #include <iostream>
-#include <romfs-wiiu.h>
 #include <string>
 #include <vector>
 
@@ -70,7 +69,6 @@ std::vector<Image> scanImagesInSubfolders(const std::string &directoryPath, SDL_
 }
 
 int main() {
-    romfsInit();
     State::init();
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG);
@@ -210,7 +208,6 @@ int main() {
     font = NULL;
     SDL_Quit();
     IMG_Quit();
-    romfsExit();
 
     State::shutdown();
 
