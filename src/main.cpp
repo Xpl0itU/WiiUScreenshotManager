@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
+#include <StateUtils.h>
 #include <algorithm>
 #include <coreinit/memory.h>
 #include <filesystem>
@@ -70,6 +71,7 @@ std::vector<Image> scanImagesInSubfolders(const std::string &directoryPath, SDL_
 
 int main() {
     romfsInit();
+    State::init();
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG);
 
@@ -99,17 +101,11 @@ int main() {
     int selectedImageIndex = 0;
     int scrollOffsetY = 0;
 
-    bool quit = false;
-    SDL_Event event;
-
     Input input;
 
-    while (!quit) {
+    while (State::AppRunning()) {
         input.read();
-        SDL_PollEvent(&event);
-        if (event.type == SDL_QUIT) {
-            quit = true;
-        } else if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
+        if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
             if (input.get(TRIGGER, PAD_BUTTON_A)) {
                 images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
             } else if (input.get(TRIGGER, PAD_BUTTON_UP)) {
@@ -215,6 +211,8 @@ int main() {
     SDL_Quit();
     IMG_Quit();
     romfsExit();
+
+    State::shutdown();
 
     return 0;
 }
