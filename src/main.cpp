@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
+#include <algorithm>
 #include <coreinit/memory.h>
 #include <filesystem>
 #include <iostream>
@@ -60,7 +61,7 @@ std::vector<Image> scanImagesInSubfolders(const std::string &directoryPath, SDL_
             img.path = entry.path().string();
 
             images.push_back(img);
-            imageIndex++;
+            ++imageIndex;
         }
     }
 
@@ -130,13 +131,26 @@ int main() {
                     selectedImageIndex++;
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_X)) {
-                for (auto image : images) {
-                    if (image.selected) {
-                        SDL_DestroyTexture(images[selectedImageIndex].texture);
-                        images[selectedImageIndex].texture = nullptr;
-                        remove(images[selectedImageIndex].path.c_str());
-                        images.erase(images.begin() + selectedImageIndex);
+                if (std::any_of(images.begin(), images.end(), [](const Image &image) { return image.selected; })) {
+                    for (auto &image : images) {
+                        if (image.selected) {
+                            SDL_DestroyTexture(image.texture);
+                            image.texture = nullptr;
+                            remove(image.path.c_str());
+                            images.erase(std::remove_if(images.begin(), images.end(), [&](const Image &img) {
+                                             return img.path == image.path;
+                                         }),
+                                         images.end());
+                        }
                     }
+                } else {
+                    SDL_DestroyTexture(images[selectedImageIndex].texture);
+                    images[selectedImageIndex].texture = nullptr;
+                    remove(images[selectedImageIndex].path.c_str());
+                    images.erase(std::remove_if(images.begin(), images.end(), [&](const Image &img) {
+                                     return img.path == images[selectedImageIndex].path;
+                                 }),
+                                 images.end());
                 }
 
                 int totalImages = static_cast<int>(images.size());
