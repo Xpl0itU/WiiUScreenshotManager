@@ -33,8 +33,37 @@ struct ImagesPair {
     std::string pathDRC;
 };
 
+enum class MenuState {
+    ShowAllImages,
+    SelectImagesDelete,
+    ShowSingleImage,
+};
+
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
+}
+
+bool showConfirmationDialog(SDL_Renderer *renderer) {
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+    SDL_RenderFillRect(renderer, nullptr);
+
+    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 - 50, SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
+    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 + 50, SCREEN_COLOR_WHITE, "Press A to confirm or B to cancel");
+
+    SDL_RenderPresent(renderer);
+
+    Input input;
+    while (State::AppRunning()) {
+        input.read();
+        if (input.get(TRIGGER, PAD_BUTTON_A)) {
+            return true;
+        } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
+            return false;
+        }
+    }
+
+    return false;
 }
 
 std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, SDL_Renderer *renderer, int offsetX, int offsetY) {
@@ -45,7 +74,7 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         return imagePairs;
     }
 
-    std::unordered_map<std::string, std::pair<std::string, std::string>> baseFilenames; // Map to store TV and DRC filenames per base filename
+    std::unordered_map<std::string, std::pair<std::string, std::string>> baseFilenames;
 
     for (const auto &entry : std::filesystem::recursive_directory_iterator(directoryPath)) {
         if (!entry.is_regular_file()) {
@@ -124,6 +153,9 @@ int main() {
 
     Input input;
 
+    MenuState state = MenuState::ShowAllImages;
+    std::string titleText = "All images";
+
     while (State::AppRunning()) {
         input.read();
         if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
@@ -148,115 +180,134 @@ int main() {
                     selectedImageIndex++;
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_X)) {
-                if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
-                    for (auto &image : images) {
-                        if (image.selected) {
-                            if (image.textureTV) {
-                                SDL_DestroyTexture(image.textureTV);
-                                image.textureTV = nullptr;
+                if (state == MenuState::ShowAllImages) {
+                    state = MenuState::SelectImagesDelete;
+                } else if (state == MenuState::SelectImagesDelete) {
+                    if (showConfirmationDialog(renderer)) {
+                        if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+                            for (auto &image : images) {
+                                if (image.selected) {
+                                    if (image.textureTV) {
+                                        SDL_DestroyTexture(image.textureTV);
+                                        image.textureTV = nullptr;
+                                    }
+                                    if (image.textureDRC) {
+                                        SDL_DestroyTexture(image.textureDRC);
+                                        image.textureDRC = nullptr;
+                                    }
+                                    if (image.pathTV != "") {
+                                        remove(image.pathTV.c_str());
+                                    }
+                                    if (image.pathDRC != "") {
+                                        remove(image.pathDRC.c_str());
+                                    }
+                                    images.erase(std::remove_if(images.begin(), images.end(), [&](const ImagesPair &img) {
+                                                     return (img.pathDRC == image.pathDRC) || (img.pathTV == image.pathTV);
+                                                 }),
+                                                 images.end());
+                                }
                             }
-                            if (image.textureDRC) {
-                                SDL_DestroyTexture(image.textureDRC);
-                                image.textureDRC = nullptr;
+                            int totalImages = static_cast<int>(images.size());
+                            for (int i = 0; i < totalImages; ++i) {
+                                int row = i / GRID_SIZE;
+                                int col = i % GRID_SIZE;
+                                images[i].x = offsetX + col * (IMAGE_SIZE + SEPARATION);
+                                images[i].y = offsetY + row * (IMAGE_SIZE + SEPARATION);
                             }
-                            if (image.pathTV != "") {
-                                remove(image.pathTV.c_str());
-                            }
-                            if (image.pathDRC != "") {
-                                remove(image.pathDRC.c_str());
-                            }
-                            images.erase(std::remove_if(images.begin(), images.end(), [&](const ImagesPair &img) {
-                                             return (img.pathDRC == image.pathDRC) || (img.pathTV == image.pathTV);
-                                         }),
-                                         images.end());
                         }
                     }
-                } else {
-                    if (images[selectedImageIndex].textureTV) {
-                        SDL_DestroyTexture(images[selectedImageIndex].textureTV);
-                        images[selectedImageIndex].textureTV = nullptr;
-                    }
-                    if (images[selectedImageIndex].textureDRC) {
-                        SDL_DestroyTexture(images[selectedImageIndex].textureDRC);
-                        images[selectedImageIndex].textureDRC = nullptr;
-                    }
-                    if (images[selectedImageIndex].pathTV != "") {
-                        remove(images[selectedImageIndex].pathTV.c_str());
-                    }
-                    if (images[selectedImageIndex].pathDRC != "") {
-                        remove(images[selectedImageIndex].pathDRC.c_str());
-                    }
-                    images.erase(std::remove_if(images.begin(), images.end(), [&](const ImagesPair &img) {
-                                     return (img.pathDRC == images[selectedImageIndex].pathDRC) || (img.pathTV == images[selectedImageIndex].pathTV);
-                                 }),
-                                 images.end());
                 }
-
-                int totalImages = static_cast<int>(images.size());
-                for (int i = 0; i < totalImages; ++i) {
-                    int row = i / GRID_SIZE;
-                    int col = i % GRID_SIZE;
-                    images[i].x = offsetX + col * (IMAGE_SIZE + SEPARATION);
-                    images[i].y = offsetY + row * (IMAGE_SIZE + SEPARATION);
+            } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
+                state = MenuState::ShowAllImages;
+                selectedImageIndex = 0;
+                if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+                    for (auto &image : images) {
+                        image.selected = false;
+                    }
+                }
+            } else if (input.get(TRIGGER, PAD_BUTTON_A)) {
+                if (state == MenuState::ShowAllImages) {
+                    state = MenuState::ShowSingleImage;
+                } else if (state == MenuState::SelectImagesDelete) {
+                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
                 }
             }
         }
 
         SDL_RenderClear(renderer);
-        if (images.empty()) {
-            FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
-        } else {
-            for (size_t i = 0; i < images.size(); ++i) {
-                SDL_Rect destRect = {images[i].x, images[i].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE};
-                if (images[i].selected) {
-                    SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
-                } else {
-                    SDL_SetTextureColorMod(images[i].textureTV, 255, 255, 255);
+        if (state != MenuState::ShowSingleImage) {
+            if (images.empty()) {
+                FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
+            } else {
+                for (size_t i = 0; i < images.size(); ++i) {
+                    SDL_Rect destRect = {images[i].x, images[i].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE};
+                    if (images[i].selected) {
+                        SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
+                    } else {
+                        SDL_SetTextureColorMod(images[i].textureTV, 255, 255, 255);
+                    }
+                    SDL_SetTextureBlendMode(images[i].textureTV, SDL_BLENDMODE_BLEND);
+                    SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRect);
                 }
-                SDL_SetTextureBlendMode(images[i].textureTV, SDL_BLENDMODE_BLEND);
-                SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRect);
+
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+                SDL_Rect outlineRect = {images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE + 5, IMAGE_SIZE + 5};
+                SDL_RenderDrawRect(renderer, &outlineRect);
             }
+            SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
 
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-            SDL_Rect outlineRect = {images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE + 5, IMAGE_SIZE + 5};
-            SDL_RenderDrawRect(renderer, &outlineRect);
+            SDL_Rect hudRect = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION, 0, IMAGE_SIZE, SCREEN_HEIGHT};
+            SDL_RenderFillRect(renderer, &hudRect);
+
+            SDL_SetRenderDrawColor(renderer, 173, 216, 230, 255);
+            // Draw hud text
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 5, "Album");
+            std::string allImagesCount = "(" + std::to_string(images.size()) + ")";
+            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 40, IMAGE_SIZE, 1};
+            SDL_RenderFillRect(renderer, &separatorLine);
+            switch (state) {
+                case MenuState::ShowAllImages:
+                    titleText = "All images";
+                    break;
+                case MenuState::ShowSingleImage:
+                    titleText = "Single image";
+                    break;
+                case MenuState::SelectImagesDelete:
+                    titleText = "Select images";
+                    break;
+                default:
+                    titleText = "Unknown";
+                    break;
+            }
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, titleText.c_str());
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 80, allImagesCount.c_str());
+            // Draw controls at the bottom of the hud rect
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 130, "DPAD: Move");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 100, "A: Select");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 70, "B: Back");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 40, "X: Delete");
+
+            SDL_RenderPresent(renderer);
+        } else if (state == MenuState::ShowSingleImage && hoveredImageIndex >= 0 && hoveredImageIndex < static_cast<int>(images.size())) {
+            SDL_Rect fullscreenRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+            SDL_RenderCopy(renderer, images[hoveredImageIndex].textureTV, nullptr, &fullscreenRect);
+            SDL_RenderPresent(renderer);
         }
-        SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
 
-        SDL_Rect hudRect = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION, 0, IMAGE_SIZE, SCREEN_HEIGHT};
-        SDL_RenderFillRect(renderer, &hudRect);
+        for (const auto &img : images) {
+            if (img.textureTV) {
+                SDL_DestroyTexture(img.textureTV);
+            }
+            if (img.textureDRC) {
+                SDL_DestroyTexture(img.textureDRC);
+            }
+        }
 
-        SDL_SetRenderDrawColor(renderer, 173, 216, 230, 255);
-        // Draw hud text
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 5, "Album");
-        std::string allImagesCount = "(" + std::to_string(images.size()) + ")";
-        SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 40, IMAGE_SIZE, 1};
-        SDL_RenderFillRect(renderer, &separatorLine);
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, "All Images");
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 80, allImagesCount.c_str());
-        // Draw controls at the bottom of the hud rect
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 130, "DPAD: Move");
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 100, "A: Select");
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 70, "B: Back");
-        FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 40, "X: Delete");
+        FC_FreeFont(font);
+        font = NULL;
+        IMG_Quit();
 
-        SDL_RenderPresent(renderer);
+        State::shutdown();
+
+        return 0;
     }
-
-    for (const auto &img : images) {
-        if (img.textureTV) {
-            SDL_DestroyTexture(img.textureTV);
-        }
-        if (img.textureDRC) {
-            SDL_DestroyTexture(img.textureDRC);
-        }
-    }
-
-    FC_FreeFont(font);
-    font = NULL;
-    IMG_Quit();
-
-    State::shutdown();
-
-    return 0;
-}
