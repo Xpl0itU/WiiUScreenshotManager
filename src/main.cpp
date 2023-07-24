@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #define SCREEN_WIDTH       1280
@@ -32,12 +33,8 @@ struct ImagesPair {
     std::string pathDRC;
 };
 
-bool endsWith(const std::string &str, const std::string &suffix) {
-    if (str.length() < suffix.length()) {
-        return false;
-    }
-
-    return str.substr(str.length() - suffix.length()) == suffix;
+bool fileEndsWith(const std::string &filename, const std::string &extension) {
+    return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
 }
 
 std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, SDL_Renderer *renderer, int offsetX, int offsetY) {
@@ -45,87 +42,49 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
     int pairIndex = 1;
 
     if (!std::filesystem::exists(directoryPath) || !std::filesystem::is_directory(directoryPath)) {
-        return imagePairs; // Return an empty vector if the directory doesn't exist or is not a directory
+        return imagePairs;
     }
+
+    std::unordered_map<std::string, std::pair<std::string, std::string>> baseFilenames; // Map to store TV and DRC filenames per base filename
 
     for (const auto &entry : std::filesystem::recursive_directory_iterator(directoryPath)) {
         if (!entry.is_regular_file()) {
-            continue; // Skip if not a regular file
+            continue;
         }
 
-        std::string extension = entry.path().extension().string();
-        if (extension == ".jpg" || extension == ".png" || extension == ".bmp") {
-            std::string filename = entry.path().filename().string();
-            if (filename.rfind("DRC.", filename.size() - 5) != std::string::npos) {
-                std::string tvFilename = filename;
-                tvFilename.replace(filename.size() - extension.size() - 3, 3, "TV");
-                std::string tvPath = entry.path().parent_path().string() + "/" + tvFilename;
+        std::string filename = entry.path().filename().string();
+        std::string baseFilename = filename.substr(0, filename.find_last_of('.'));
+        if (fileEndsWith(filename, "_TV.jpg") || fileEndsWith(filename, "_TV.png") || fileEndsWith(filename, "_TV.bmp")) {
+            baseFilenames[baseFilename].first = entry.path().string();
+        } else if (fileEndsWith(filename, "_DRC.jpg") || fileEndsWith(filename, "_DRC.png") || fileEndsWith(filename, "_DRC.bmp")) {
+            baseFilenames[baseFilename].second = entry.path().string();
+        }
+    }
 
-                if (std::filesystem::exists(tvPath) && std::filesystem::exists(entry.path().string())) {
-                    SDL_Surface *surfaceTV = IMG_Load(tvPath.c_str());
-                    SDL_Surface *surfaceDRC = IMG_Load(entry.path().c_str());
+    for (const auto &[baseFilename, paths] : baseFilenames) {
+        std::string tvPath = paths.first;
+        std::string drcPath = paths.second;
 
-                    if (!surfaceTV || !surfaceDRC) {
-                        SDL_FreeSurface(surfaceTV);
-                        SDL_FreeSurface(surfaceDRC);
-                        continue;
-                    }
+        if ((tvPath.empty() || std::filesystem::exists(tvPath)) || (drcPath.empty() || std::filesystem::exists(drcPath))) {
+            SDL_Surface *surfaceTV = tvPath.empty() ? nullptr : IMG_Load(tvPath.c_str());
+            SDL_Surface *surfaceDRC = drcPath.empty() ? nullptr : IMG_Load(drcPath.c_str());
 
-                    ImagesPair imgPair;
-                    imgPair.textureTV = SDL_CreateTextureFromSurface(renderer, surfaceTV);
-                    imgPair.textureDRC = SDL_CreateTextureFromSurface(renderer, surfaceDRC);
-                    SDL_FreeSurface(surfaceTV);
-                    SDL_FreeSurface(surfaceDRC);
+            ImagesPair imgPair;
+            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : nullptr;
+            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : nullptr;
 
-                    imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-                    imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_SIZE + SEPARATION);
+            if (surfaceTV) SDL_FreeSurface(surfaceTV);
+            if (surfaceDRC) SDL_FreeSurface(surfaceDRC);
 
-                    imgPair.selected = false;
-                    imgPair.pathTV = tvPath;
-                    imgPair.pathDRC = entry.path().string();
+            imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_SIZE + SEPARATION);
+            imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_SIZE + SEPARATION);
 
-                    imagePairs.push_back(imgPair);
-                    ++pairIndex;
-                } else {
-                    if (std::filesystem::exists(tvPath)) {
-                        SDL_Surface *surfaceTV = IMG_Load(tvPath.c_str());
-                        if (surfaceTV) {
-                            ImagesPair imgPair;
-                            imgPair.textureTV = SDL_CreateTextureFromSurface(renderer, surfaceTV);
-                            imgPair.textureDRC = nullptr;
-                            SDL_FreeSurface(surfaceTV);
+            imgPair.selected = false;
+            imgPair.pathTV = tvPath;
+            imgPair.pathDRC = drcPath;
 
-                            imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-                            imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-
-                            imgPair.selected = false;
-                            imgPair.pathTV = tvPath;
-                            imgPair.pathDRC = "";
-
-                            imagePairs.push_back(imgPair);
-                            ++pairIndex;
-                        }
-                    } else if (std::filesystem::exists(entry.path().string())) {
-                        SDL_Surface *surfaceDRC = IMG_Load(entry.path().c_str());
-                        if (surfaceDRC) {
-                            ImagesPair imgPair;
-                            imgPair.textureDRC = SDL_CreateTextureFromSurface(renderer, surfaceDRC);
-                            imgPair.textureTV = nullptr;
-                            SDL_FreeSurface(surfaceDRC);
-
-                            imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-                            imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-
-                            imgPair.selected = false;
-                            imgPair.pathDRC = entry.path().string();
-                            imgPair.pathTV = "";
-
-                            imagePairs.push_back(imgPair);
-                            ++pairIndex;
-                        }
-                    }
-                }
-            }
+            imagePairs.push_back(imgPair);
+            ++pairIndex;
         }
     }
 
@@ -135,7 +94,7 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
 int main() {
     State::init();
     SDL_Init(SDL_INIT_VIDEO);
-    IMG_Init(IMG_INIT_PNG);
+    IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
 
     SDL_Window *window = SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
@@ -293,11 +252,8 @@ int main() {
         }
     }
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
     FC_FreeFont(font);
     font = NULL;
-    SDL_Quit();
     IMG_Quit();
 
     State::shutdown();
