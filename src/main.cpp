@@ -44,7 +44,7 @@ std::vector<Image> scanImagesInSubfolders(const std::string &directoryPath, SDL_
         }
 
         std::string extension = entry.path().extension().string();
-        if (extension == ".jpg" || extension == ".png" || extension == ".bmp") {
+        if ((extension == ".jpg" || extension == ".png" || extension == ".bmp") && entry.path().filename().string().rfind(".", 0) == 0) {
             SDL_Surface *surface = IMG_Load(entry.path().string().c_str());
             if (!surface) {
                 continue; // Failed to load the image, skip it
