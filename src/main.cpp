@@ -16,8 +16,9 @@
 #define SCREEN_WIDTH        1920
 #define SCREEN_HEIGHT       1080
 #define GRID_SIZE           3
-#define IMAGE_SIZE          SCREEN_WIDTH / GRID_SIZE / 2
-#define SEPARATION          IMAGE_SIZE / 3
+#define IMAGE_WIDTH         SCREEN_WIDTH / GRID_SIZE / 2
+#define IMAGE_HEIGHT        SCREEN_HEIGHT / GRID_SIZE / 2
+#define SEPARATION          IMAGE_WIDTH / 3
 #define MARGIN_TOP          200
 #define MARGIN_BOTTOM       50
 #define FONT_SIZE           36
@@ -138,8 +139,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
             if (surfaceTV) SDL_FreeSurface(surfaceTV);
             if (surfaceDRC) SDL_FreeSurface(surfaceDRC);
 
-            imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_SIZE + SEPARATION);
-            imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_SIZE + SEPARATION);
+            imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
+            imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
 
             imgPair.selected = false;
             imgPair.pathTV = tvPath;
@@ -177,10 +178,10 @@ int main() {
         return 1;
     }
 
-    int totalWidth = GRID_SIZE * (IMAGE_SIZE + SEPARATION) - SEPARATION;
-    int totalHeight = GRID_SIZE * (IMAGE_SIZE + SEPARATION) - SEPARATION + MARGIN_TOP + MARGIN_BOTTOM;
+    int totalWidth = GRID_SIZE * (IMAGE_WIDTH + SEPARATION) - SEPARATION;
+    int totalHeight = GRID_SIZE * (IMAGE_WIDTH + SEPARATION) - SEPARATION + MARGIN_TOP + MARGIN_BOTTOM;
 
-    int offsetX = (SCREEN_WIDTH - totalWidth) / 2 - IMAGE_SIZE / 3;
+    int offsetX = (SCREEN_WIDTH - totalWidth) / 2 - IMAGE_WIDTH / 3;
     int offsetY = (SCREEN_HEIGHT - totalHeight) / 2 + MARGIN_TOP;
 
     std::vector<ImagesPair> images = scanImagePairsInSubfolders(imagePath, renderer, offsetX, offsetY);
@@ -214,14 +215,14 @@ int main() {
                 if (state != MenuState::ShowSingleImage) {
                     if (selectedImageIndex >= GRID_SIZE) {
                         selectedImageIndex -= GRID_SIZE;
-                        scrollOffsetY += IMAGE_SIZE + SEPARATION;
+                        scrollOffsetY += IMAGE_WIDTH + SEPARATION;
                     }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_DOWN)) {
                 if (state != MenuState::ShowSingleImage) {
                     if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
                         selectedImageIndex += GRID_SIZE;
-                        scrollOffsetY -= IMAGE_SIZE + SEPARATION;
+                        scrollOffsetY -= IMAGE_WIDTH + SEPARATION;
                     }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_LEFT)) {
@@ -274,8 +275,8 @@ int main() {
                             for (int i = 0; i < totalImages; ++i) {
                                 int row = i / GRID_SIZE;
                                 int col = i % GRID_SIZE;
-                                images[i].x = offsetX + col * (IMAGE_SIZE + SEPARATION);
-                                images[i].y = offsetY + row * (IMAGE_SIZE + SEPARATION);
+                                images[i].x = offsetX + col * (IMAGE_WIDTH + SEPARATION);
+                                images[i].y = offsetY + row * (IMAGE_WIDTH + SEPARATION);
                             }
                         }
                         state = MenuState::ShowAllImages;
@@ -298,8 +299,8 @@ int main() {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
             } else {
                 for (size_t i = 0; i < images.size(); ++i) {
-                    SDL_Rect destRectTV = {images[i].x, images[i].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE};
-                    SDL_Rect destRectDRC = {images[i].x + IMAGE_SIZE / 2, images[i].y + scrollOffsetY + IMAGE_SIZE / 2, IMAGE_SIZE / 2, IMAGE_SIZE / 2};
+                    SDL_Rect destRectTV = {images[i].x, images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
+                    SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
                     if (images[i].selected) {
                         SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
                         SDL_SetTextureColorMod(images[i].textureDRC, 0, 255, 0);
@@ -313,7 +314,7 @@ int main() {
                     SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                 }
 
-                drawRect(renderer, images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE, 7, SCREEN_COLOR_YELLOW);
+                drawRect(renderer, images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
             if (state == MenuState::ShowAllImages) {
                 SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
@@ -321,14 +322,14 @@ int main() {
                 SDL_SetRenderDrawColor(renderer, 0x7F, 0x00, 0x00, 0xFF);
             }
 
-            SDL_Rect hudRect = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION, 0, IMAGE_SIZE, SCREEN_HEIGHT};
+            SDL_Rect hudRect = {SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION, 0, IMAGE_WIDTH, SCREEN_HEIGHT};
             SDL_RenderFillRect(renderer, &hudRect);
 
             SDL_SetRenderDrawColor(renderer, 173, 216, 230, 255);
             // Draw hud text
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 5, "Album");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 5, "Album");
             std::string allImagesCount = "(" + std::to_string(images.size()) + ")";
-            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, IMAGE_SIZE, 1};
+            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 50, IMAGE_WIDTH, 1};
             SDL_RenderFillRect(renderer, &separatorLine);
             switch (state) {
                 case MenuState::ShowAllImages:
@@ -344,19 +345,19 @@ int main() {
                     titleText = "Unknown";
                     break;
             }
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, titleText.c_str());
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 90, allImagesCount.c_str());
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 50, titleText.c_str());
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 90, allImagesCount.c_str());
             // Draw controls at the bottom of the hud rect
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 170, BUTTON_DPAD ": Move");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 130, BUTTON_A ": Select");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 90, BUTTON_B ": Back");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 50, BUTTON_X ": Delete");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, SCREEN_HEIGHT - 170, BUTTON_DPAD ": Move");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, SCREEN_HEIGHT - 130, BUTTON_A ": Select");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, SCREEN_HEIGHT - 90, BUTTON_B ": Back");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, SCREEN_HEIGHT - 50, BUTTON_X ": Delete");
 
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             switch (singleImageState) {
                 case SingleImageState::TV:
-                    arrowRect.x = SCREEN_WIDTH - IMAGE_SIZE;
+                    arrowRect.x = SCREEN_WIDTH - IMAGE_WIDTH;
                     SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
                     SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
                     break;
@@ -366,7 +367,7 @@ int main() {
                     SDL_RenderCopyEx(renderer, arrowTexture, nullptr, &arrowRect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
                     break;
                 default:
-                    arrowRect.x = SCREEN_WIDTH - IMAGE_SIZE;
+                    arrowRect.x = SCREEN_WIDTH - IMAGE_WIDTH;
                     SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
                     SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
                     break;
