@@ -248,14 +248,16 @@ int main() {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
             } else {
                 for (size_t i = 0; i < images.size(); ++i) {
-                    SDL_Rect destRect = {images[i].x, images[i].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE};
+                    SDL_Rect destRectTV = {images[i].x, images[i].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE};
+                    SDL_Rect destRectDRC = {images[i].x + IMAGE_SIZE / 2, images[i].y + scrollOffsetY + IMAGE_SIZE / 2, IMAGE_SIZE / 2, IMAGE_SIZE / 2};
                     if (images[i].selected) {
                         SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
                     } else {
                         SDL_SetTextureColorMod(images[i].textureTV, 255, 255, 255);
                     }
                     SDL_SetTextureBlendMode(images[i].textureTV, SDL_BLENDMODE_BLEND);
-                    SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRect);
+                    SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
+                    SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                 }
 
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
