@@ -160,7 +160,9 @@ int main() {
         input.read();
         if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
             if (input.get(TRIGGER, PAD_BUTTON_A)) {
-                images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                if (!images.empty()) {
+                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                }
             } else if (input.get(TRIGGER, PAD_BUTTON_UP)) {
                 if (selectedImageIndex >= GRID_SIZE) {
                     selectedImageIndex -= GRID_SIZE;
@@ -215,6 +217,7 @@ int main() {
                                 images[i].y = offsetY + row * (IMAGE_SIZE + SEPARATION);
                             }
                         }
+                        state = MenuState::ShowAllImages;
                     }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
@@ -254,7 +257,11 @@ int main() {
                 SDL_Rect outlineRect = {images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE + 5, IMAGE_SIZE + 5};
                 SDL_RenderDrawRect(renderer, &outlineRect);
             }
-            SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
+            if (state == MenuState::ShowAllImages) {
+                SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0x7F, 0x00, 0x00, 0xFF);
+            }
 
             SDL_Rect hudRect = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION, 0, IMAGE_SIZE, SCREEN_HEIGHT};
             SDL_RenderFillRect(renderer, &hudRect);
@@ -288,26 +295,27 @@ int main() {
             FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 40, "X: Delete");
 
             SDL_RenderPresent(renderer);
-        } else if (state == MenuState::ShowSingleImage && hoveredImageIndex >= 0 && hoveredImageIndex < static_cast<int>(images.size())) {
+        } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             SDL_Rect fullscreenRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-            SDL_RenderCopy(renderer, images[hoveredImageIndex].textureTV, nullptr, &fullscreenRect);
+            SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
             SDL_RenderPresent(renderer);
         }
-
-        for (const auto &img : images) {
-            if (img.textureTV) {
-                SDL_DestroyTexture(img.textureTV);
-            }
-            if (img.textureDRC) {
-                SDL_DestroyTexture(img.textureDRC);
-            }
-        }
-
-        FC_FreeFont(font);
-        font = NULL;
-        IMG_Quit();
-
-        State::shutdown();
-
-        return 0;
     }
+
+    for (const auto &img : images) {
+        if (img.textureTV) {
+            SDL_DestroyTexture(img.textureTV);
+        }
+        if (img.textureDRC) {
+            SDL_DestroyTexture(img.textureDRC);
+        }
+    }
+
+    FC_FreeFont(font);
+    font = NULL;
+    IMG_Quit();
+
+    State::shutdown();
+
+    return 0;
+}
