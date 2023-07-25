@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
-#define SCREEN_WIDTH       1280
-#define SCREEN_HEIGHT      720
+#define SCREEN_WIDTH       1920
+#define SCREEN_HEIGHT      1080
 #define GRID_SIZE          3
 #define IMAGE_SIZE         SCREEN_WIDTH / GRID_SIZE / 2
 #define SEPARATION         IMAGE_SIZE / 3

@@ -42,7 +42,7 @@ CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
 
-LIBS		:=	`$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image` -lwut
+LIBS		:=	`$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image` -lwut -lharfbuzz
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
