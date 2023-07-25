@@ -21,7 +21,7 @@ jobs:
       - name: Build artifacts
         run: |
           docker run --rm -v ${PWD}:/project builder make -j$(nproc)
-      - name: Upload Linux Artifact
+      - name: Upload Artifact
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: True
