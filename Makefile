@@ -26,6 +26,7 @@ SOURCES		:=	src
 
 DATA		:=
 INCLUDES	:=	include
+ROMFS 		:= 	romfs
 
 #-------------------------------------------------------------------------------
 # options for code generation
@@ -36,13 +37,19 @@ CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
 				-Wcast-align  \
 				-D__WIIU__ -D__WUT__ \
-				-Wno-trigraphs
+				-Wno-trigraphs $(ROMFS_CFLAGS)
 
 CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
 
 LIBS		:=	`$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image` -lwut -lharfbuzz
+
+include $(PORTLIBS_PATH)/wiiu/share/romfs-wiiu.mk
+CFLAGS		+=	$(ROMFS_CFLAGS)
+CXXFLAGS	+=	$(ROMFS_CFLAGS)
+LIBS		+=	$(ROMFS_LIBS)
+OFILES		:=	$(ROMFS_TARGET)
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
@@ -111,7 +118,7 @@ endif
 
 OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
 OFILES_SRC	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-OFILES 		:=	$(OFILES_BIN) $(OFILES_SRC)
+OFILES 		+=	$(OFILES_BIN) $(OFILES_SRC)
 HFILES_BIN	:=	$(addsuffix .h,$(subst .,_,$(BINFILES)))
 
 INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \

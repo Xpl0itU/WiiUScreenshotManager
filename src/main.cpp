@@ -7,6 +7,7 @@
 #include <coreinit/memory.h>
 #include <filesystem>
 #include <iostream>
+#include <romfs-wiiu.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -142,6 +143,8 @@ int main() {
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
 
+    romfsInit();
+
     SDL_Window *window = SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
@@ -173,6 +176,11 @@ int main() {
     MenuState state = MenuState::ShowAllImages;
     SingleImageState singleImageState = SingleImageState::TV;
     std::string titleText = "All images";
+
+    SDL_Texture *arrowTexture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
+    SDL_Rect arrowRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
+
+    SDL_Rect fullscreenRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
 
     while (State::AppRunning()) {
         input.read();
@@ -331,16 +339,21 @@ int main() {
 
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
-            SDL_Rect fullscreenRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
             switch (singleImageState) {
                 case SingleImageState::TV:
+                    arrowRect.x = SCREEN_WIDTH - IMAGE_SIZE;
                     SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
+                    SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
                     break;
                 case SingleImageState::DRC:
+                    arrowRect.x = 0;
                     SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &fullscreenRect);
+                    SDL_RenderCopyEx(renderer, arrowTexture, nullptr, &arrowRect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
                     break;
                 default:
+                    arrowRect.x = SCREEN_WIDTH - IMAGE_SIZE;
                     SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
+                    SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
                     break;
             }
             SDL_RenderPresent(renderer);
@@ -365,6 +378,8 @@ int main() {
     SDL_DestroyWindow(window);
     SDL_Quit();
     IMG_Quit();
+
+    romfsExit();
 
     State::shutdown();
 
