@@ -41,7 +41,7 @@ struct ImagesPair {
     std::string pathTV;
     std::string pathDRC;
 
-    bool operator==(const ImagesPair& other) const {
+    bool operator==(const ImagesPair &other) const {
         return pathTV == other.pathTV && pathDRC == other.pathDRC;
     }
 };
@@ -253,12 +253,10 @@ int main() {
                 } else if (state == MenuState::SelectImagesDelete) {
                     if (showConfirmationDialog(renderer)) {
                         if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+                            std::vector<ImagesPair> removedImages;
                             for (auto &image : images) {
                                 if (image.selected) {
-                                    auto it = std::find(images.begin(), images.end(), image);
-                                    if (it != images.end()) {
-                                        images.erase(it);
-                                    }
+                                    removedImages.push_back(image);
                                     if (!image.pathTV.empty()) {
                                         std::filesystem::remove(image.pathTV);
                                     }
@@ -275,6 +273,15 @@ int main() {
                                     }
                                 }
                             }
+                            for (auto &image : removedImages) {
+                                auto it = std::find(images.begin(), images.end(), image);
+                                if (it != images.end()) {
+                                    images.erase(it);
+                                }
+                            }
+                            removedImages.clear();
+                            removedImages.shrink_to_fit();
+                            selectedImageIndex = 0;
                             int totalImages = static_cast<int>(images.size());
                             for (int i = 0; i < totalImages; ++i) {
                                 int row = i / GRID_SIZE;
