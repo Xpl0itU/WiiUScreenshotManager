@@ -63,9 +63,12 @@ bool fileEndsWith(const std::string &filename, const std::string &extension) {
 }
 
 void drawRectFilled(SDL_Renderer *renderer, int x, int y, int w, int h, SDL_Color color) {
+    SDL_Color prevColor = {0, 0, 0, 0};
+    SDL_GetRenderDrawColor(renderer, &prevColor.r, &prevColor.g, &prevColor.b, &prevColor.a);
     SDL_Rect rect{x, y, w, h};
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(renderer, &rect);
+    SDL_SetRenderDrawColor(renderer, prevColor.r, prevColor.g, prevColor.b, prevColor.a);
 }
 
 void drawRect(SDL_Renderer *renderer, int x, int y, int w, int h, int borderSize, SDL_Color color) {
@@ -348,8 +351,7 @@ int main() {
             // Draw hud text
             FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 5, "Album");
             std::string allImagesCount = "(" + std::to_string(images.size()) + ")";
-            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION + 5, 50, IMAGE_WIDTH, 1};
-            SDL_RenderFillRect(renderer, &separatorLine);
+            drawRectFilled(renderer, SCREEN_WIDTH - IMAGE_WIDTH - SEPARATION, 50, IMAGE_WIDTH, 3, SCREEN_COLOR_WHITE);
             switch (state) {
                 case MenuState::ShowAllImages:
                     titleText = "All images";
