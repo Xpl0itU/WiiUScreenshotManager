@@ -8,23 +8,25 @@
 #include <filesystem>
 #include <iostream>
 #include <romfs-wiiu.h>
+#include <sndcore2/core.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#define SCREEN_WIDTH       1920
-#define SCREEN_HEIGHT      1080
-#define GRID_SIZE          3
-#define IMAGE_SIZE         SCREEN_WIDTH / GRID_SIZE / 2
-#define SEPARATION         IMAGE_SIZE / 3
-#define MARGIN_TOP         200
-#define MARGIN_BOTTOM      50
-#define FONT_SIZE          36
-#define SCREEN_COLOR_WHITE ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
-#define BUTTON_A           "\uE000"
-#define BUTTON_B           "\uE001"
-#define BUTTON_X           "\uE002"
-#define BUTTON_DPAD        "\uE07D"
+#define SCREEN_WIDTH        1920
+#define SCREEN_HEIGHT       1080
+#define GRID_SIZE           3
+#define IMAGE_SIZE          SCREEN_WIDTH / GRID_SIZE / 2
+#define SEPARATION          IMAGE_SIZE / 3
+#define MARGIN_TOP          200
+#define MARGIN_BOTTOM       50
+#define FONT_SIZE           36
+#define SCREEN_COLOR_WHITE  ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
+#define SCREEN_COLOR_YELLOW ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF})
+#define BUTTON_A            "\uE000"
+#define BUTTON_B            "\uE001"
+#define BUTTON_X            "\uE002"
+#define BUTTON_DPAD         "\uE07D"
 
 const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font;
@@ -52,6 +54,19 @@ enum class SingleImageState {
 
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
+}
+
+void drawRectFilled(SDL_Renderer *renderer, int x, int y, int w, int h, SDL_Color color) {
+    SDL_Rect rect{x, y, w, h};
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+void drawRect(SDL_Renderer *renderer, int x, int y, int w, int h, int borderSize, SDL_Color color) {
+    drawRectFilled(renderer, x, y, w, borderSize, color);
+    drawRectFilled(renderer, x, y + h - borderSize, w, borderSize, color);
+    drawRectFilled(renderer, x, y, borderSize, h, color);
+    drawRectFilled(renderer, x + w - borderSize, y, borderSize, h, color);
 }
 
 bool showConfirmationDialog(SDL_Renderer *renderer) {
@@ -139,6 +154,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
 }
 
 int main() {
+    AXInit();
+    AXQuit();
     State::init();
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
@@ -296,9 +313,7 @@ int main() {
                     SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                 }
 
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-                SDL_Rect outlineRect = {images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE + 5, IMAGE_SIZE + 5};
-                SDL_RenderDrawRect(renderer, &outlineRect);
+                drawRect(renderer, images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_SIZE, IMAGE_SIZE, 7, SCREEN_COLOR_YELLOW);
             }
             if (state == MenuState::ShowAllImages) {
                 SDL_SetRenderDrawColor(renderer, 0, 0, 139, 255);
@@ -376,7 +391,7 @@ int main() {
     }
 
     FC_FreeFont(font);
-    font = NULL;
+    font = nullptr;
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
