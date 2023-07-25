@@ -18,7 +18,7 @@
 #define SEPARATION         IMAGE_SIZE / 3
 #define MARGIN_TOP         200
 #define MARGIN_BOTTOM      50
-#define FONT_SIZE          28
+#define FONT_SIZE          36
 #define SCREEN_COLOR_WHITE ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
 #define BUTTON_A           "\uE000"
 #define BUTTON_B           "\uE001"
@@ -41,6 +41,11 @@ enum class MenuState {
     ShowAllImages,
     SelectImagesDelete,
     ShowSingleImage,
+};
+
+enum class SingleImageState {
+    TV,
+    DRC,
 };
 
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
@@ -159,6 +164,7 @@ int main() {
     Input input;
 
     MenuState state = MenuState::ShowAllImages;
+    SingleImageState singleImageState = SingleImageState::TV;
     std::string titleText = "All images";
 
     while (State::AppRunning()) {
@@ -166,25 +172,43 @@ int main() {
         if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
             if (input.get(TRIGGER, PAD_BUTTON_A)) {
                 if (!images.empty()) {
-                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                    if (state == MenuState::SelectImagesDelete) {
+                        images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                    } else if (state == MenuState::ShowAllImages) {
+                        state = MenuState::ShowSingleImage;
+                    }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_UP)) {
-                if (selectedImageIndex >= GRID_SIZE) {
-                    selectedImageIndex -= GRID_SIZE;
-                    scrollOffsetY += IMAGE_SIZE + SEPARATION;
+                if (state != MenuState::ShowSingleImage) {
+                    if (selectedImageIndex >= GRID_SIZE) {
+                        selectedImageIndex -= GRID_SIZE;
+                        scrollOffsetY += IMAGE_SIZE + SEPARATION;
+                    }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_DOWN)) {
-                if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
-                    selectedImageIndex += GRID_SIZE;
-                    scrollOffsetY -= IMAGE_SIZE + SEPARATION;
+                if (state != MenuState::ShowSingleImage) {
+                    if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
+                        selectedImageIndex += GRID_SIZE;
+                        scrollOffsetY -= IMAGE_SIZE + SEPARATION;
+                    }
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_LEFT)) {
-                if (selectedImageIndex % GRID_SIZE != 0) {
-                    selectedImageIndex--;
+                if (state != MenuState::ShowSingleImage) {
+                    if (selectedImageIndex % GRID_SIZE != 0) {
+                        selectedImageIndex--;
+                    }
+                }
+                if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::DRC)) {
+                    singleImageState = SingleImageState::TV;
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_RIGHT)) {
-                if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
-                    selectedImageIndex++;
+                if (state != MenuState::ShowSingleImage) {
+                    if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
+                        selectedImageIndex++;
+                    }
+                }
+                if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::TV)) {
+                    singleImageState = SingleImageState::DRC;
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_X)) {
                 if (state == MenuState::ShowAllImages) {
@@ -227,17 +251,11 @@ int main() {
                 }
             } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
                 state = MenuState::ShowAllImages;
-                selectedImageIndex = 0;
+                singleImageState = SingleImageState::TV;
                 if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
                     for (auto &image : images) {
                         image.selected = false;
                     }
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_A)) {
-                if (state == MenuState::ShowAllImages) {
-                    state = MenuState::ShowSingleImage;
-                } else if (state == MenuState::SelectImagesDelete) {
-                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
                 }
             }
         }
@@ -277,7 +295,7 @@ int main() {
             // Draw hud text
             FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 5, "Album");
             std::string allImagesCount = "(" + std::to_string(images.size()) + ")";
-            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 40, IMAGE_SIZE, 1};
+            SDL_Rect separatorLine = {SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, IMAGE_SIZE, 1};
             SDL_RenderFillRect(renderer, &separatorLine);
             switch (state) {
                 case MenuState::ShowAllImages:
@@ -304,7 +322,17 @@ int main() {
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             SDL_Rect fullscreenRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-            SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
+            switch (singleImageState) {
+                case SingleImageState::TV:
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
+                    break;
+                case SingleImageState::DRC:
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &fullscreenRect);
+                    break;
+                default:
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &fullscreenRect);
+                    break;
+            }
             SDL_RenderPresent(renderer);
         }
     }
