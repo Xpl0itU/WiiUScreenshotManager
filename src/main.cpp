@@ -24,6 +24,7 @@
 #define FONT_SIZE           36
 #define SCREEN_COLOR_WHITE  ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
 #define SCREEN_COLOR_YELLOW ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF})
+#define SCREEN_COLOR_D_RED  ((SDL_Color){.r = 0x7F, .g = 0x00, .b = 0x00, .a = 0xFF})
 #define BUTTON_A            "\uE000"
 #define BUTTON_B            "\uE001"
 #define BUTTON_X            "\uE002"
@@ -79,8 +80,15 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
     SDL_RenderFillRect(renderer, nullptr);
 
-    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 - 50, SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
-    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 + 50, SCREEN_COLOR_WHITE, BUTTON_A "Confirm"
+    int rectWidth = FC_GetWidth(font, "Are you sure you want to delete the selected images?") + 40;
+    int buttonsHeight = FC_GetHeight(font, BUTTON_A "Confirm") + FC_GetHeight(font, BUTTON_B "Cancel");
+    int messageHeight = FC_GetHeight(font, "Are you sure you want to delete the selected images?");
+    int rectHeight = buttonsHeight + messageHeight;
+
+    drawRectFilled(renderer, SCREEN_WIDTH / 2 - rectWidth / 2, SCREEN_HEIGHT / 2 - rectHeight / 2, rectWidth, rectHeight, SCREEN_COLOR_D_RED);
+
+    FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2), SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
+    FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2) + messageHeight * 2, SCREEN_COLOR_WHITE, BUTTON_A "Confirm"
                                                                                                         " " BUTTON_B "Cancel");
 
     SDL_RenderPresent(renderer);
