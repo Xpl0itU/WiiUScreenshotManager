@@ -1,4 +1,4 @@
-FROM ghcr.io/wiiu-env/devkitppc:20230402
+FROM ghcr.io/wiiu-env/devkitppc:20230621
 
 ENV PATH=$DEVKITPPC/bin:$PATH \
  WUT_ROOT=$DEVKITPRO/wut

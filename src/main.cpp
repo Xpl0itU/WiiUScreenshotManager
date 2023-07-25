@@ -20,6 +20,10 @@
 #define MARGIN_BOTTOM      50
 #define FONT_SIZE          28
 #define SCREEN_COLOR_WHITE ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
+#define BUTTON_A           "\uE000"
+#define BUTTON_B           "\uE001"
+#define BUTTON_X           "\uE002"
+#define BUTTON_DPAD        "\uE07D"
 
 const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font;
@@ -49,7 +53,8 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     SDL_RenderFillRect(renderer, nullptr);
 
     FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 - 50, SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
-    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 + 50, SCREEN_COLOR_WHITE, "Press A to confirm or B to cancel");
+    FC_DrawColor(font, renderer, SCREEN_WIDTH / 3, SCREEN_HEIGHT / 2 + 50, SCREEN_COLOR_WHITE, BUTTON_A "Confirm"
+                                                                                                        " " BUTTON_B "Cancel");
 
     SDL_RenderPresent(renderer);
 
@@ -289,10 +294,10 @@ int main() {
             FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 50, titleText.c_str());
             FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, 80, allImagesCount.c_str());
             // Draw controls at the bottom of the hud rect
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 130, "DPAD: Move");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 100, "A: Select");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 70, "B: Back");
-            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 40, "X: Delete");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 130, BUTTON_DPAD ": Move");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 100, BUTTON_A ": Select");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 70, BUTTON_B ": Back");
+            FC_Draw(font, renderer, SCREEN_WIDTH - IMAGE_SIZE - SEPARATION + 5, SCREEN_HEIGHT - 40, BUTTON_X ": Delete");
 
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
@@ -313,6 +318,9 @@ int main() {
 
     FC_FreeFont(font);
     font = NULL;
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     IMG_Quit();
 
     State::shutdown();
