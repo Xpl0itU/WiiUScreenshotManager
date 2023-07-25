@@ -78,6 +78,33 @@ void drawRect(SDL_Renderer *renderer, int x, int y, int w, int h, int borderSize
     drawRectFilled(renderer, x + w - borderSize, y, borderSize, h, color);
 }
 
+void drawOrb(SDL_Renderer *renderer, int x, int y, int size, bool selected) {
+    SDL_Color orbColor = selected ? SCREEN_COLOR_YELLOW : SCREEN_COLOR_WHITE;
+    int orbRadius = size / 2;
+    int orbCenterX = x + orbRadius;
+    int orbCenterY = y + orbRadius;
+    for (int dx = -orbRadius; dx <= orbRadius; ++dx) {
+        for (int dy = -orbRadius; dy <= orbRadius; ++dy) {
+            int distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared <= orbRadius * orbRadius) {
+                SDL_SetRenderDrawColor(renderer, orbColor.r, orbColor.g, orbColor.b, orbColor.a);
+                SDL_RenderDrawPoint(renderer, orbCenterX + dx, orbCenterY + dy);
+            }
+        }
+    }
+
+    if (selected) {
+        int crossSize = size / 3;
+        int x1 = orbCenterX - crossSize / 2;
+        int y1 = orbCenterY - crossSize / 2;
+        int x2 = orbCenterX + crossSize / 2;
+        int y2 = orbCenterY + crossSize / 2;
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+        SDL_RenderDrawLine(renderer, x1, y2, x2, y1);
+    }
+}
+
 bool showConfirmationDialog(SDL_Renderer *renderer) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
@@ -92,7 +119,7 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
 
     FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2), SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
     FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2) + messageHeight * 2, SCREEN_COLOR_WHITE, BUTTON_A "Confirm"
-                                                                                                        " " BUTTON_B "Cancel");
+                                                                                                                                                          " " BUTTON_B "Cancel");
 
     SDL_RenderPresent(renderer);
 
@@ -334,6 +361,9 @@ int main() {
                     SDL_SetTextureBlendMode(images[i].textureDRC, SDL_BLENDMODE_BLEND);
                     SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
                     SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
+                    if (state == MenuState::SelectImagesDelete) {
+                        drawOrb(renderer, images[i].x - 10, images[i].y + scrollOffsetY - 10, 60, images[i].selected);
+                    }
                 }
 
                 drawRect(renderer, images[selectedImageIndex].x, images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
