@@ -371,6 +371,9 @@ int main() {
     if (blackTexture) {
         SDL_DestroyTexture(blackTexture);
     }
+    if (arrowTexture) {
+        SDL_DestroyTexture(arrowTexture);
+    }
 
     FC_FreeFont(font);
     font = NULL;
