@@ -40,6 +40,10 @@ struct ImagesPair {
     bool selected;
     std::string pathTV;
     std::string pathDRC;
+
+    bool operator==(const ImagesPair& other) const {
+        return pathTV == other.pathTV && pathDRC == other.pathDRC;
+    }
 };
 
 enum class MenuState {
@@ -251,24 +255,24 @@ int main() {
                         if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
                             for (auto &image : images) {
                                 if (image.selected) {
-                                    if (image.textureTV) {
+                                    auto it = std::find(images.begin(), images.end(), image);
+                                    if (it != images.end()) {
+                                        images.erase(it);
+                                    }
+                                    if (!image.pathTV.empty()) {
+                                        std::filesystem::remove(image.pathTV);
+                                    }
+                                    if (!image.pathDRC.empty()) {
+                                        std::filesystem::remove(image.pathDRC);
+                                    }
+                                    if (image.textureTV && image.textureTV != blackTexture) {
                                         SDL_DestroyTexture(image.textureTV);
                                         image.textureTV = nullptr;
                                     }
-                                    if (image.textureDRC) {
+                                    if (image.textureDRC && image.textureDRC != blackTexture) {
                                         SDL_DestroyTexture(image.textureDRC);
                                         image.textureDRC = nullptr;
                                     }
-                                    if (image.pathTV != "") {
-                                        remove(image.pathTV.c_str());
-                                    }
-                                    if (image.pathDRC != "") {
-                                        remove(image.pathDRC.c_str());
-                                    }
-                                    images.erase(std::remove_if(images.begin(), images.end(), [&](const ImagesPair &img) {
-                                                     return (img.pathDRC == image.pathDRC) || (img.pathTV == image.pathTV);
-                                                 }),
-                                                 images.end());
                                 }
                             }
                             int totalImages = static_cast<int>(images.size());
