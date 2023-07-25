@@ -27,6 +27,7 @@
 
 const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font;
+SDL_Texture *blackTexture;
 
 struct ImagesPair {
     SDL_Texture *textureTV;
@@ -100,6 +101,12 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         }
     }
 
+    blackTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
+    SDL_SetRenderTarget(renderer, blackTexture);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderTarget(renderer, NULL);
+
     for (const auto &[baseFilename, paths] : baseFilenames) {
         std::string tvPath = paths.first;
         std::string drcPath = paths.second;
@@ -109,8 +116,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
             SDL_Surface *surfaceDRC = drcPath.empty() ? nullptr : IMG_Load(drcPath.c_str());
 
             ImagesPair imgPair;
-            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : nullptr;
-            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : nullptr;
+            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : blackTexture;
+            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : blackTexture;
 
             if (surfaceTV) SDL_FreeSurface(surfaceTV);
             if (surfaceDRC) SDL_FreeSurface(surfaceDRC);
@@ -270,10 +277,13 @@ int main() {
                     SDL_Rect destRectDRC = {images[i].x + IMAGE_SIZE / 2, images[i].y + scrollOffsetY + IMAGE_SIZE / 2, IMAGE_SIZE / 2, IMAGE_SIZE / 2};
                     if (images[i].selected) {
                         SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
+                        SDL_SetTextureColorMod(images[i].textureDRC, 0, 255, 0);
                     } else {
                         SDL_SetTextureColorMod(images[i].textureTV, 255, 255, 255);
+                        SDL_SetTextureColorMod(images[i].textureDRC, 255, 255, 255);
                     }
                     SDL_SetTextureBlendMode(images[i].textureTV, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureBlendMode(images[i].textureDRC, SDL_BLENDMODE_BLEND);
                     SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
                     SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                 }
@@ -344,6 +354,9 @@ int main() {
         if (img.textureDRC) {
             SDL_DestroyTexture(img.textureDRC);
         }
+    }
+    if (blackTexture) {
+        SDL_DestroyTexture(blackTexture);
     }
 
     FC_FreeFont(font);
