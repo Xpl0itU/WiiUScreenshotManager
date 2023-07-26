@@ -75,6 +75,14 @@ bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
 }
 
+bool isPointInsideRect(int x, int y, const SDL_Rect &rect) {
+    return (x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h);
+}
+
+bool isPointInsideRect(int x, int y, int w, int h, int rectX, int rectY) {
+    return (x >= rectX && x <= rectX + w && y >= rectY && y <= rectY + h);
+}
+
 bool isFirstRow(int index) {
     return index < GRID_SIZE;
 }
@@ -85,10 +93,10 @@ bool isLastRow(int index, int imageCount) {
 }
 
 bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
-    int imageTop = headerTexture.originalRect.h + image.y + scrollOffsetY;
+    int imageTop = headerTexture.rect.h + image.y + scrollOffsetY;
     int imageBottom = imageTop + IMAGE_HEIGHT + IMAGE_HEIGHT / 2;
 
-    int screenTop = headerTexture.originalRect.h;
+    int screenTop = headerTexture.rect.h;
     int screenBottom = SCREEN_HEIGHT;
 
     return (imageBottom >= screenTop) && (imageTop <= screenBottom);
@@ -311,8 +319,54 @@ int main() {
     headerTexture.rect = headerTexture.originalRect;
     arrowTexture.rect = arrowTexture.originalRect;
 
+    SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+    if (SDL_NumJoysticks() > 0) {
+        SDL_JoystickOpen(0);
+    }
+
+    bool deleteImagesSelected = false;
+    bool pressedBack = false;
+    SDL_Event event;
     while (State::AppRunning()) {
+        deleteImagesSelected = false;
+        pressedBack = false;
         input.read();
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_FINGERDOWN:
+                    int x = event.tfinger.x * SCREEN_WIDTH;
+                    int y = event.tfinger.y * SCREEN_HEIGHT;
+                    if (state == MenuState::ShowAllImages) {
+                        if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
+                            state = MenuState::SelectImagesDelete;
+                        }
+                        for (auto image : images) {
+                            if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
+                                selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
+                                state = MenuState::ShowSingleImage;
+                            }
+                        }
+                    } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
+                        if (state == MenuState::SelectImagesDelete) {
+                            if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
+                                deleteImagesSelected = true;
+                            }
+                        }
+                        if (isPointInsideRect(x, y, cornerButtonTexture.rect)) {
+                            pressedBack = true;
+                        }
+                    } else if (state == MenuState::ShowSingleImage) {
+                        if (isPointInsideRect(x, y, arrowTexture.rect)) {
+                            if (singleImageState == SingleImageState::TV) {
+                                singleImageState = SingleImageState::DRC;
+                            } else if (singleImageState == SingleImageState::DRC) {
+                                singleImageState = SingleImageState::TV;
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
         if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
             if (input.get(TRIGGER, PAD_BUTTON_A)) {
                 if (!images.empty()) {
@@ -434,20 +488,74 @@ int main() {
             }
         }
 
+        if (deleteImagesSelected) {
+            if (showConfirmationDialog(renderer)) {
+                if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+                    std::vector<ImagesPair> removedImages;
+                    for (auto &image : images) {
+                        if (image.selected) {
+                            removedImages.push_back(image);
+                            if (!image.pathTV.empty()) {
+                                std::filesystem::remove(image.pathTV);
+                            }
+                            if (!image.pathDRC.empty()) {
+                                std::filesystem::remove(image.pathDRC);
+                            }
+                            if (image.textureTV && image.textureTV != blackTexture.texture) {
+                                SDL_DestroyTexture(image.textureTV);
+                                image.textureTV = nullptr;
+                            }
+                            if (image.textureDRC && image.textureDRC != blackTexture.texture) {
+                                SDL_DestroyTexture(image.textureDRC);
+                                image.textureDRC = nullptr;
+                            }
+                        }
+                    }
+                    for (auto &image : removedImages) {
+                        auto it = std::find(images.begin(), images.end(), image);
+                        if (it != images.end()) {
+                            images.erase(it);
+                        }
+                    }
+                    removedImages.clear();
+                    removedImages.shrink_to_fit();
+                    selectedImageIndex = 0;
+                    int totalImages = static_cast<int>(images.size());
+                    for (int i = 0; i < totalImages; ++i) {
+                        int row = i / GRID_SIZE;
+                        int col = i % GRID_SIZE;
+                        images[i].x = offsetX + col * (IMAGE_WIDTH + SEPARATION);
+                        images[i].y = offsetY + row * (IMAGE_WIDTH + SEPARATION);
+                    }
+                }
+                state = MenuState::ShowAllImages;
+            }
+        }
+
+        if (pressedBack) {
+            state = MenuState::ShowAllImages;
+            singleImageState = SingleImageState::TV;
+            if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+                for (auto &image : images) {
+                    image.selected = false;
+                }
+            }
+        }
+
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.originalRect);
+        SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
             } else {
                 SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
-                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.originalRect);
+                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
                 SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
-                FC_DrawColor(font, renderer, headerTexture.originalRect.x + (headerTexture.originalRect.w / 2), (headerTexture.originalRect.y + (headerTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
+                FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
                 for (size_t i = 0; i < images.size(); ++i) {
                     if (isImageVisible(images[i], scrollOffsetY)) {
-                        SDL_Rect destRectTV = {images[i].x, headerTexture.originalRect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
-                        SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.originalRect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
+                        SDL_Rect destRectTV = {images[i].x, headerTexture.rect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
+                        SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.rect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
                         if (images[i].selected) {
                             SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
                             SDL_SetTextureColorMod(images[i].textureDRC, 0, 255, 0);
@@ -460,7 +568,7 @@ int main() {
                         SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
                         SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                         if (state == MenuState::SelectImagesDelete) {
-                            drawOrb(renderer, images[i].x - 10, headerTexture.originalRect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
+                            drawOrb(renderer, images[i].x - 10, headerTexture.rect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
                         }
                     }
                 }
@@ -468,43 +576,43 @@ int main() {
                 SDL_SetTextureBlendMode(largeCornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
                 if (state == MenuState::SelectImagesDelete) {
                     SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 0, 0);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, largeCornerButtonTexture.originalRect.x + (largeCornerButtonTexture.originalRect.w / 2), (largeCornerButtonTexture.originalRect.y + (largeCornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.rect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2), (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
                     SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
                     SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
-                    SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect);
-                    SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.originalRect);
+                    SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.rect);
+                    SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
                 } else {
                     SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 255, 255);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.originalRect.x + (largeCornerButtonTexture.originalRect.w / 2)) - 5, (largeCornerButtonTexture.originalRect.y + (largeCornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.rect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2)) - 5, (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
                 }
-                drawRect(renderer, images[selectedImageIndex].x, headerTexture.originalRect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
+                drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
 
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             switch (singleImageState) {
                 case SingleImageState::TV:
-                    arrowTexture.originalRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.originalRect);
-                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect);
+                    arrowTexture.rect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.rect);
+                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect);
                     break;
                 case SingleImageState::DRC:
-                    arrowTexture.originalRect.x = 0;
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &backgroundTexture.originalRect);
-                    SDL_RenderCopyEx(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+                    arrowTexture.rect.x = 0;
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &backgroundTexture.rect);
+                    SDL_RenderCopyEx(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
                     break;
                 default:
-                    arrowTexture.originalRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.originalRect);
-                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect);
+                    arrowTexture.rect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.rect);
+                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect);
                     break;
             }
             SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
             SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
-            SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect);
-            SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.originalRect);
+            SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.rect);
+            SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
             SDL_RenderPresent(renderer);
         }
     }
