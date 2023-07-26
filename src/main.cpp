@@ -30,17 +30,6 @@
 #define BUTTON_X            "\uE002"
 #define BUTTON_DPAD         "\uE07D"
 
-const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
-FC_Font *font = nullptr;
-SDL_Texture *blackTexture = nullptr;
-SDL_Texture *headerTexture = nullptr;
-SDL_Texture *backgroundTexture = nullptr;
-SDL_Texture *cornerButtonTexture = nullptr;
-SDL_Texture *largeCornerButtonTexture = nullptr;
-SDL_Texture *backGraphicTexture = nullptr;
-SDL_Texture *orbTexture = nullptr;
-SDL_Rect headerRect;
-
 struct ImagesPair {
     SDL_Texture *textureTV;
     SDL_Texture *textureDRC;
@@ -65,6 +54,23 @@ enum class SingleImageState {
     DRC,
 };
 
+struct Texture {
+    SDL_Texture *texture;
+    SDL_Rect rect;
+    SDL_Rect originalRect;
+};
+
+const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
+FC_Font *font = nullptr;
+SDL_Texture *orbTexture = nullptr;
+Texture blackTexture;
+Texture headerTexture;
+Texture backgroundTexture;
+Texture cornerButtonTexture;
+Texture largeCornerButtonTexture;
+Texture backGraphicTexture;
+Texture arrowTexture;
+
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
 }
@@ -79,10 +85,10 @@ bool isLastRow(int index, int imageCount) {
 }
 
 bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
-    int imageTop = headerRect.h + image.y + scrollOffsetY;
+    int imageTop = headerTexture.originalRect.h + image.y + scrollOffsetY;
     int imageBottom = imageTop + IMAGE_HEIGHT + IMAGE_HEIGHT / 2;
 
-    int screenTop = headerRect.h;
+    int screenTop = headerTexture.originalRect.h;
     int screenBottom = SCREEN_HEIGHT;
 
     return (imageBottom >= screenTop) && (imageTop <= screenBottom);
@@ -186,8 +192,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         }
     }
 
-    blackTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
-    SDL_SetRenderTarget(renderer, blackTexture);
+    blackTexture.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
+    SDL_SetRenderTarget(renderer, blackTexture.texture);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, NULL);
@@ -201,8 +207,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
             SDL_Surface *surfaceDRC = drcPath.empty() ? nullptr : IMG_Load(drcPath.c_str());
 
             ImagesPair imgPair;
-            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : blackTexture;
-            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : blackTexture;
+            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : blackTexture.texture;
+            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : blackTexture.texture;
 
             if (surfaceTV) SDL_FreeSurface(surfaceTV);
             if (surfaceDRC) SDL_FreeSurface(surfaceDRC);
@@ -263,38 +269,41 @@ int main() {
     SingleImageState singleImageState = SingleImageState::TV;
     std::string titleText = "All images";
 
-    SDL_Texture *arrowTexture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
-    SDL_Rect arrowRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
+    arrowTexture.texture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
+    if (!arrowTexture.texture) {
+        return 1;
+    }
+    arrowTexture.originalRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
 
-    backgroundTexture = IMG_LoadTexture(renderer, "romfs:/backdrop.png");
-    if (!backgroundTexture) {
+    backgroundTexture.texture = IMG_LoadTexture(renderer, "romfs:/backdrop.png");
+    if (!backgroundTexture.texture) {
         return 1;
     }
-    cornerButtonTexture = IMG_LoadTexture(renderer, "romfs:/corner-button.png");
-    if (!cornerButtonTexture) {
+    cornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/corner-button.png");
+    if (!cornerButtonTexture.texture) {
         return 1;
     }
-    largeCornerButtonTexture = IMG_LoadTexture(renderer, "romfs:/large-corner-button.png");
-    if (!largeCornerButtonTexture) {
+    largeCornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/large-corner-button.png");
+    if (!largeCornerButtonTexture.texture) {
         return 1;
     }
-    backGraphicTexture = IMG_LoadTexture(renderer, "romfs:/back_graphic.png");
-    if (!backGraphicTexture) {
+    backGraphicTexture.texture = IMG_LoadTexture(renderer, "romfs:/back_graphic.png");
+    if (!backGraphicTexture.texture) {
         return 1;
     }
-    headerTexture = IMG_LoadTexture(renderer, "romfs:/header.png");
-    if (!headerTexture) {
+    headerTexture.texture = IMG_LoadTexture(renderer, "romfs:/header.png");
+    if (!headerTexture.texture) {
         return 1;
     }
     orbTexture = IMG_LoadTexture(renderer, "romfs:/orb.png");
     if (!orbTexture) {
         return 1;
     }
-    SDL_Rect backgroundRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-    SDL_Rect cornerButtonRect = {0, SCREEN_HEIGHT - 256, 256, 256};
-    SDL_Rect largeCornerButtonRect = {SCREEN_WIDTH - 512, 0, 512, 256};
-    SDL_Rect backGraphicRect = {0, SCREEN_HEIGHT - 128, 128, 128};
-    headerRect = {0, 0, SCREEN_WIDTH, 256};
+    backgroundTexture.originalRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    cornerButtonTexture.originalRect = {0, SCREEN_HEIGHT - 256, 256, 256};
+    largeCornerButtonTexture.originalRect = {SCREEN_WIDTH - 512, 0, 512, 256};
+    backGraphicTexture.originalRect = {0, SCREEN_HEIGHT - 128, 128, 128};
+    headerTexture.originalRect = {0, 0, SCREEN_WIDTH, 256};
 
     while (State::AppRunning()) {
         input.read();
@@ -378,11 +387,11 @@ int main() {
                                     if (!image.pathDRC.empty()) {
                                         std::filesystem::remove(image.pathDRC);
                                     }
-                                    if (image.textureTV && image.textureTV != blackTexture) {
+                                    if (image.textureTV && image.textureTV != blackTexture.texture) {
                                         SDL_DestroyTexture(image.textureTV);
                                         image.textureTV = nullptr;
                                     }
-                                    if (image.textureDRC && image.textureDRC != blackTexture) {
+                                    if (image.textureDRC && image.textureDRC != blackTexture.texture) {
                                         SDL_DestroyTexture(image.textureDRC);
                                         image.textureDRC = nullptr;
                                     }
@@ -420,19 +429,19 @@ int main() {
         }
 
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, backgroundTexture, nullptr, &backgroundRect);
+        SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.originalRect);
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
             } else {
-                SDL_SetTextureColorMod(headerTexture, 0, 0, 147);
-                SDL_RenderCopy(renderer, headerTexture, nullptr, &headerRect);
-                SDL_SetTextureBlendMode(headerTexture, SDL_BLENDMODE_BLEND);
-                FC_DrawColor(font, renderer, headerRect.x + (headerRect.w / 2), (headerRect.y + (headerRect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
+                SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
+                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.originalRect);
+                SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
+                FC_DrawColor(font, renderer, headerTexture.originalRect.x + (headerTexture.originalRect.w / 2), (headerTexture.originalRect.y + (headerTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
                 for (size_t i = 0; i < images.size(); ++i) {
                     if (isImageVisible(images[i], scrollOffsetY)) {
-                        SDL_Rect destRectTV = {images[i].x, headerRect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
-                        SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerRect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
+                        SDL_Rect destRectTV = {images[i].x, headerTexture.originalRect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
+                        SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.originalRect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
                         if (images[i].selected) {
                             SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
                             SDL_SetTextureColorMod(images[i].textureDRC, 0, 255, 0);
@@ -445,26 +454,26 @@ int main() {
                         SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
                         SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                         if (state == MenuState::SelectImagesDelete) {
-                            drawOrb(renderer, images[i].x - 10, headerRect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
+                            drawOrb(renderer, images[i].x - 10, headerTexture.originalRect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
                         }
                     }
                 }
 
-                SDL_SetTextureBlendMode(largeCornerButtonTexture, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureBlendMode(largeCornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
                 if (state == MenuState::SelectImagesDelete) {
-                    SDL_SetTextureColorMod(largeCornerButtonTexture, 255, 0, 0);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture, nullptr, &largeCornerButtonRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, largeCornerButtonRect.x + (largeCornerButtonRect.w / 2), (largeCornerButtonRect.y + (largeCornerButtonRect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
-                    SDL_SetTextureBlendMode(cornerButtonTexture, SDL_BLENDMODE_BLEND);
-                    SDL_SetTextureBlendMode(backGraphicTexture, SDL_BLENDMODE_BLEND);
-                    SDL_RenderCopy(renderer, cornerButtonTexture, nullptr, &cornerButtonRect);
-                    SDL_RenderCopy(renderer, backGraphicTexture, nullptr, &backGraphicRect);
+                    SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 0, 0);
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, cornerButtonTexture.originalRect.x + (cornerButtonTexture.originalRect.w / 2), (cornerButtonTexture.originalRect.y + (cornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
+                    SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
+                    SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect);
+                    SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.originalRect);
                 } else {
-                    SDL_SetTextureColorMod(largeCornerButtonTexture, 255, 255, 255);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture, nullptr, &largeCornerButtonRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, (largeCornerButtonRect.x + (largeCornerButtonRect.w / 2)) - 5, (largeCornerButtonRect.y + (largeCornerButtonRect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
+                    SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 255, 255);
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, (cornerButtonTexture.originalRect.x + (cornerButtonTexture.originalRect.w / 2)) - 5, (cornerButtonTexture.originalRect.y + (cornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
                 }
-                drawRect(renderer, images[selectedImageIndex].x, headerRect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
+                drawRect(renderer, images[selectedImageIndex].x, headerTexture.originalRect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
 
             switch (state) {
@@ -486,25 +495,25 @@ int main() {
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             switch (singleImageState) {
                 case SingleImageState::TV:
-                    arrowRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundRect);
-                    SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
+                    arrowTexture.originalRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.originalRect);
+                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect);
                     break;
                 case SingleImageState::DRC:
-                    arrowRect.x = 0;
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &backgroundRect);
-                    SDL_RenderCopyEx(renderer, arrowTexture, nullptr, &arrowRect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+                    arrowTexture.originalRect.x = 0;
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &backgroundTexture.originalRect);
+                    SDL_RenderCopyEx(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
                     break;
                 default:
-                    arrowRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundRect);
-                    SDL_RenderCopy(renderer, arrowTexture, nullptr, &arrowRect);
+                    arrowTexture.originalRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
+                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.originalRect);
+                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.originalRect);
                     break;
             }
-            SDL_SetTextureBlendMode(cornerButtonTexture, SDL_BLENDMODE_BLEND);
-            SDL_SetTextureBlendMode(backGraphicTexture, SDL_BLENDMODE_BLEND);
-            SDL_RenderCopy(renderer, cornerButtonTexture, nullptr, &cornerButtonRect);
-            SDL_RenderCopy(renderer, backGraphicTexture, nullptr, &backGraphicRect);
+            SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
+            SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect);
+            SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.originalRect);
             SDL_RenderPresent(renderer);
         }
     }
@@ -517,29 +526,29 @@ int main() {
             SDL_DestroyTexture(img.textureDRC);
         }
     }
-    if (blackTexture) {
-        SDL_DestroyTexture(blackTexture);
+    if (blackTexture.texture) {
+        SDL_DestroyTexture(blackTexture.texture);
     }
-    if (arrowTexture) {
-        SDL_DestroyTexture(arrowTexture);
+    if (arrowTexture.texture) {
+        SDL_DestroyTexture(arrowTexture.texture);
     }
-    if (backgroundTexture) {
-        SDL_DestroyTexture(backgroundTexture);
+    if (backgroundTexture.texture) {
+        SDL_DestroyTexture(backgroundTexture.texture);
     }
-    if (cornerButtonTexture) {
-        SDL_DestroyTexture(cornerButtonTexture);
+    if (cornerButtonTexture.texture) {
+        SDL_DestroyTexture(cornerButtonTexture.texture);
     }
-    if (backGraphicTexture) {
-        SDL_DestroyTexture(backGraphicTexture);
+    if (backGraphicTexture.texture) {
+        SDL_DestroyTexture(backGraphicTexture.texture);
     }
-    if (headerTexture) {
-        SDL_DestroyTexture(headerTexture);
+    if (headerTexture.texture) {
+        SDL_DestroyTexture(headerTexture.texture);
     }
     if (orbTexture) {
         SDL_DestroyTexture(orbTexture);
     }
-    if (largeCornerButtonTexture) {
-        SDL_DestroyTexture(largeCornerButtonTexture);
+    if (largeCornerButtonTexture.texture) {
+        SDL_DestroyTexture(largeCornerButtonTexture.texture);
     }
 
     FC_FreeFont(font);
