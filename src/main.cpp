@@ -60,6 +60,13 @@ struct Texture {
     SDL_Rect originalRect;
 };
 
+struct Particle {
+    float x, y;
+    float vx, vy;
+    int lifetime, size;
+    SDL_Rect rect;
+};
+
 const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
@@ -70,6 +77,8 @@ Texture cornerButtonTexture;
 Texture largeCornerButtonTexture;
 Texture backGraphicTexture;
 Texture arrowTexture;
+
+std::vector<Particle> particles;
 
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
@@ -90,6 +99,18 @@ bool isFirstRow(int index) {
 bool isLastRow(int index, int imageCount) {
     int lastRow = (imageCount - 1) / GRID_SIZE;
     return index >= (lastRow * GRID_SIZE);
+}
+
+Particle generateParticle(float x, float y) {
+    Particle particle;
+    particle.x = x;
+    particle.y = y;
+    particle.vx = static_cast<float>(rand() % 3 - 1);
+    particle.vy = static_cast<float>(rand() % 3 - 1);
+    particle.lifetime = rand() % 60 + 60;
+    particle.size = (rand() % 20) + 10;
+
+    return particle;
 }
 
 bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
@@ -544,6 +565,28 @@ int main() {
 
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
+        if (rand() % 10 == 0) {
+            float x = static_cast<float>(rand() % SCREEN_WIDTH);
+            float y = static_cast<float>(rand() % SCREEN_HEIGHT);
+            particles.push_back(generateParticle(x, y));
+        }
+        for (auto it = particles.begin(); it != particles.end();) {
+            Particle &particle = *it;
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.lifetime--;
+            particle.rect = {static_cast<int>(particle.x), static_cast<int>(particle.y), particle.size, particle.size};
+
+            if (particle.lifetime <= 0) {
+                it = particles.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        for (const Particle &particle : particles) {
+            SDL_RenderCopy(renderer, orbTexture, nullptr, &particle.rect);
+            SDL_RenderFillRect(renderer, &particle.rect);
+        }
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
