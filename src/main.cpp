@@ -267,13 +267,11 @@ int main() {
 
     MenuState state = MenuState::ShowAllImages;
     SingleImageState singleImageState = SingleImageState::TV;
-    std::string titleText = "All images";
 
     arrowTexture.texture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
     if (!arrowTexture.texture) {
         return 1;
     }
-    arrowTexture.originalRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
 
     backgroundTexture.texture = IMG_LoadTexture(renderer, "romfs:/backdrop.png");
     if (!backgroundTexture.texture) {
@@ -304,6 +302,14 @@ int main() {
     largeCornerButtonTexture.originalRect = {SCREEN_WIDTH - 512, 0, 512, 256};
     backGraphicTexture.originalRect = {0, SCREEN_HEIGHT - 128, 128, 128};
     headerTexture.originalRect = {0, 0, SCREEN_WIDTH, 256};
+    arrowTexture.originalRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
+
+    backgroundTexture.rect = backgroundTexture.originalRect;
+    cornerButtonTexture.rect = cornerButtonTexture.originalRect;
+    largeCornerButtonTexture.rect = largeCornerButtonTexture.originalRect;
+    backGraphicTexture.rect = backGraphicTexture.originalRect;
+    headerTexture.rect = headerTexture.originalRect;
+    arrowTexture.rect = arrowTexture.originalRect;
 
     while (State::AppRunning()) {
         input.read();
@@ -462,33 +468,18 @@ int main() {
                 SDL_SetTextureBlendMode(largeCornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
                 if (state == MenuState::SelectImagesDelete) {
                     SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 0, 0);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, cornerButtonTexture.originalRect.x + (cornerButtonTexture.originalRect.w / 2), (cornerButtonTexture.originalRect.y + (cornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, largeCornerButtonTexture.originalRect.x + (largeCornerButtonTexture.originalRect.w / 2), (largeCornerButtonTexture.originalRect.y + (largeCornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
                     SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
                     SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
                     SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect);
                     SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.originalRect);
                 } else {
                     SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 255, 255);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &cornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, (cornerButtonTexture.originalRect.x + (cornerButtonTexture.originalRect.w / 2)) - 5, (cornerButtonTexture.originalRect.y + (cornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
+                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.originalRect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.originalRect.x + (largeCornerButtonTexture.originalRect.w / 2)) - 5, (largeCornerButtonTexture.originalRect.y + (largeCornerButtonTexture.originalRect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
                 }
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.originalRect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
-            }
-
-            switch (state) {
-                case MenuState::ShowAllImages:
-                    titleText = "All images";
-                    break;
-                case MenuState::ShowSingleImage:
-                    titleText = "Single image";
-                    break;
-                case MenuState::SelectImagesDelete:
-                    titleText = "Select images";
-                    break;
-                default:
-                    titleText = "Unknown";
-                    break;
             }
 
             SDL_RenderPresent(renderer);

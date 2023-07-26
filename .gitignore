@@ -8,3 +8,4 @@ build/
 *.d
 *.map
 *.lst
+romfs/images/
