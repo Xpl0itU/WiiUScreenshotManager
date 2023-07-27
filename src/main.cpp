@@ -275,10 +275,12 @@ int main() {
     OSGetSharedData(OS_SHAREDDATATYPE_FONT_STANDARD, 0, &ttf, &size);
     font = FC_CreateFont();
     if (font == nullptr) {
+        SDL_Quit();
         return 1;
     }
     SDL_RWops *rw = SDL_RWFromConstMem(ttf, size);
     if (!FC_LoadFont_RW(font, renderer, rw, 1, FONT_SIZE, SCREEN_COLOR_WHITE, TTF_STYLE_NORMAL)) {
+        SDL_Quit();
         return 1;
     }
 
@@ -300,35 +302,43 @@ int main() {
 
     arrowTexture.texture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
     if (!arrowTexture.texture) {
+        SDL_Quit();
         return 1;
     }
 
     backgroundTexture.texture = IMG_LoadTexture(renderer, "romfs:/backdrop.png");
     if (!backgroundTexture.texture) {
+        SDL_Quit();
         return 1;
     }
     cornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/corner-button.png");
     if (!cornerButtonTexture.texture) {
+        SDL_Quit();
         return 1;
     }
     largeCornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/large-corner-button.png");
     if (!largeCornerButtonTexture.texture) {
+        SDL_Quit();
         return 1;
     }
     backGraphicTexture.texture = IMG_LoadTexture(renderer, "romfs:/back_graphic.png");
     if (!backGraphicTexture.texture) {
+        SDL_Quit();
         return 1;
     }
     headerTexture.texture = IMG_LoadTexture(renderer, "romfs:/header.png");
     if (!headerTexture.texture) {
+        SDL_Quit();
         return 1;
     }
     orbTexture = IMG_LoadTexture(renderer, "romfs:/orb.png");
     if (!orbTexture) {
+        SDL_Quit();
         return 1;
     }
     particleTexture = IMG_LoadTexture(renderer, "romfs:/orb.png");
     if (!particleTexture) {
+        SDL_Quit();
         return 1;
     }
 
@@ -346,15 +356,18 @@ int main() {
     headerTexture.rect = headerTexture.originalRect;
     arrowTexture.rect = arrowTexture.originalRect;
 
-    SDL_Joystick *j;
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
-    if (SDL_NumJoysticks() > 0) {
-        j = SDL_JoystickOpen(0);
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        if (SDL_JoystickOpen(i) == nullptr) {
+            SDL_Quit();
+            return 1;
+        }
     }
 
     bool deleteImagesSelected = false;
     bool pressedBack = false;
     SDL_Event event;
+    SDL_Joystick *j;
     while (State::AppRunning()) {
         deleteImagesSelected = false;
         pressedBack = false;
