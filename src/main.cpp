@@ -346,9 +346,10 @@ int main() {
     headerTexture.rect = headerTexture.originalRect;
     arrowTexture.rect = arrowTexture.originalRect;
 
+    SDL_Joystick *j;
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
     if (SDL_NumJoysticks() > 0) {
-        SDL_JoystickOpen(0);
+        j = SDL_JoystickOpen(0);
     }
 
     bool deleteImagesSelected = false;
@@ -360,6 +361,15 @@ int main() {
         input.read();
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
+                case SDL_JOYDEVICEADDED:
+                    j = SDL_JoystickOpen(event.jdevice.which);
+                    break;
+                case SDL_JOYDEVICEREMOVED:
+                    j = SDL_JoystickFromInstanceID(event.jdevice.which);
+                    if (j && SDL_JoystickGetAttached(j)) {
+                        SDL_JoystickClose(j);
+                    }
+                    break;
                 case SDL_FINGERDOWN:
                     int x = event.tfinger.x * SCREEN_WIDTH;
                     int y = event.tfinger.y * SCREEN_HEIGHT;
