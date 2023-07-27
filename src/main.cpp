@@ -1,4 +1,3 @@
-#include <InputUtils.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
@@ -198,16 +197,14 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
 
     SDL_RenderPresent(renderer);
 
-    Input input;
     SDL_Event event;
     while (State::AppRunning()) {
-        input.read();
         while (SDL_PollEvent(&event)) {
-            if (input.get(TRIGGER, PAD_BUTTON_A)) {
+            if ((event.type == SDL_JOYBUTTONDOWN) && (event.jbutton.button == SDL_CONTROLLER_BUTTON_A)) {
                 return true;
             } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, confirmButtonRect)) {
                 return true;
-            } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
+            } else if ((event.type == SDL_JOYBUTTONDOWN) && (event.jbutton.button == SDL_CONTROLLER_BUTTON_B)) {
                 return false;
             } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, cancelButtonRect)) {
                 return false;
@@ -315,8 +312,6 @@ int main() {
     int selectedImageIndex = 0;
     int scrollOffsetY = 0;
 
-    Input input;
-
     MenuState state = MenuState::ShowAllImages;
     SingleImageState singleImageState = SingleImageState::TV;
 
@@ -396,8 +391,8 @@ int main() {
     while (State::AppRunning()) {
         deleteImagesSelected = false;
         pressedBack = false;
-        input.read();
         while (SDL_PollEvent(&event)) {
+            int x, y;
             switch (event.type) {
                 case SDL_JOYDEVICEADDED:
                     j = SDL_JoystickOpen(event.jdevice.which);
@@ -408,9 +403,93 @@ int main() {
                         SDL_JoystickClose(j);
                     }
                     break;
+                case SDL_JOYBUTTONDOWN:
+                    switch (event.jbutton.button) {
+                        case SDL_CONTROLLER_BUTTON_A:
+                            if (!images.empty()) {
+                                if (state == MenuState::SelectImagesDelete) {
+                                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                                } else if (state == MenuState::ShowAllImages) {
+                                    state = MenuState::ShowSingleImage;
+                                }
+                            }
+                            break;
+                        case SDL_CONTROLLER_BUTTON_B:
+                            pressedBack = true;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_X:
+                            if (state == MenuState::ShowAllImages) {
+                                state = MenuState::SelectImagesDelete;
+                            } else if (state == MenuState::SelectImagesDelete) {
+                                deleteImagesSelected = true;
+                            }
+                            break;
+                        case 0xd: // SDL_CONTROLLER_BUTTON_DPAD_UP
+                            if (state != MenuState::ShowSingleImage) {
+                                if (selectedImageIndex >= GRID_SIZE) {
+                                    selectedImageIndex -= GRID_SIZE;
+                                    if (isFirstRow(selectedImageIndex) || !isImageVisible(images[selectedImageIndex], scrollOffsetY)) {
+                                        if (scrollOffsetY >= 0) {
+                                            scrollOffsetY = 0;
+                                        } else {
+                                            scrollOffsetY += (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
+                                            if (scrollOffsetY > 0) {
+                                                scrollOffsetY = 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        case 0xf: // SDL_CONTROLLER_BUTTON_DPAD_DOWN
+                            if (state != MenuState::ShowSingleImage) {
+                                if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
+                                    selectedImageIndex += GRID_SIZE;
+                                    if (isLastRow(selectedImageIndex, images.size()) || !isImageVisible(images[selectedImageIndex], scrollOffsetY)) {
+                                        scrollOffsetY -= IMAGE_WIDTH + SEPARATION;
+                                        int lastRow = (images.size() - 1) / GRID_SIZE;
+                                        int lastVisibleRow = (lastRow * GRID_SIZE - 1) / GRID_SIZE;
+                                        int lastRowTop = -lastVisibleRow * (IMAGE_HEIGHT + SEPARATION);
+
+                                        if (scrollOffsetY <= lastRowTop) {
+                                            scrollOffsetY = lastRowTop;
+                                        } else {
+                                            scrollOffsetY -= (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
+                                            if (scrollOffsetY < lastRowTop) {
+                                                scrollOffsetY = lastRowTop;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        case 0xc: // SDL_CONTROLLER_BUTTON_DPAD_LEFT
+                            if (state != MenuState::ShowSingleImage) {
+                                if (selectedImageIndex % GRID_SIZE != 0) {
+                                    selectedImageIndex--;
+                                }
+                            }
+                            if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::DRC)) {
+                                singleImageState = SingleImageState::TV;
+                            }
+                            break;
+                        case 0xe: // SDL_CONTROLLER_BUTTON_DPAD_RIGHT
+                            if (state != MenuState::ShowSingleImage) {
+                                if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
+                                    selectedImageIndex++;
+                                }
+                            }
+                            if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::TV)) {
+                                singleImageState = SingleImageState::DRC;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
                 case SDL_FINGERDOWN:
-                    int x = event.tfinger.x * SCREEN_WIDTH;
-                    int y = event.tfinger.y * SCREEN_HEIGHT;
+                    x = event.tfinger.x * SCREEN_WIDTH;
+                    y = event.tfinger.y * SCREEN_HEIGHT;
                     if (state == MenuState::ShowAllImages) {
                         if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
                             state = MenuState::SelectImagesDelete;
@@ -430,136 +509,19 @@ int main() {
                         if (isPointInsideRect(x, y, cornerButtonTexture.rect)) {
                             pressedBack = true;
                         }
-                    } else if (state == MenuState::ShowSingleImage) {
-                        if (isPointInsideRect(x, y, arrowTexture.rect)) {
-                            if (singleImageState == SingleImageState::TV) {
-                                singleImageState = SingleImageState::DRC;
-                            } else if (singleImageState == SingleImageState::DRC) {
-                                singleImageState = SingleImageState::TV;
+                        if (state == MenuState::ShowSingleImage) {
+                            if (isPointInsideRect(x, y, arrowTexture.rect)) {
+                                if (singleImageState == SingleImageState::TV) {
+                                    singleImageState = SingleImageState::DRC;
+                                } else if (singleImageState == SingleImageState::DRC) {
+                                    singleImageState = SingleImageState::TV;
+                                }
                             }
                         }
                     }
                     break;
-            }
-        }
-        if (input.get(TRIGGER, PAD_BUTTON_ANY)) {
-            if (input.get(TRIGGER, PAD_BUTTON_A)) {
-                if (!images.empty()) {
-                    if (state == MenuState::SelectImagesDelete) {
-                        images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
-                    } else if (state == MenuState::ShowAllImages) {
-                        state = MenuState::ShowSingleImage;
-                    }
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_UP)) {
-                if (state != MenuState::ShowSingleImage) {
-                    if (selectedImageIndex >= GRID_SIZE) {
-                        selectedImageIndex -= GRID_SIZE;
-                        if (isFirstRow(selectedImageIndex)) {
-                            if (scrollOffsetY >= 0) {
-                                scrollOffsetY = 0;
-                            } else {
-                                scrollOffsetY += (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
-                                if (scrollOffsetY > 0) {
-                                    scrollOffsetY = 0;
-                                }
-                            }
-                        }
-                    }
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_DOWN)) {
-                if (state != MenuState::ShowSingleImage) {
-                    if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
-                        selectedImageIndex += GRID_SIZE;
-                        if (isLastRow(selectedImageIndex, images.size())) {
-                            scrollOffsetY -= IMAGE_WIDTH + SEPARATION;
-                            int lastRow = (images.size() - 1) / GRID_SIZE;
-                            int lastVisibleRow = (lastRow * GRID_SIZE - 1) / GRID_SIZE;
-                            int lastRowTop = -lastVisibleRow * (IMAGE_HEIGHT + SEPARATION);
-
-                            if (scrollOffsetY <= lastRowTop) {
-                                scrollOffsetY = lastRowTop;
-                            } else {
-                                scrollOffsetY -= (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
-                                if (scrollOffsetY < lastRowTop) {
-                                    scrollOffsetY = lastRowTop;
-                                }
-                            }
-                        }
-                    }
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_LEFT)) {
-                if (state != MenuState::ShowSingleImage) {
-                    if (selectedImageIndex % GRID_SIZE != 0) {
-                        selectedImageIndex--;
-                    }
-                }
-                if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::DRC)) {
-                    singleImageState = SingleImageState::TV;
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_RIGHT)) {
-                if (state != MenuState::ShowSingleImage) {
-                    if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
-                        selectedImageIndex++;
-                    }
-                }
-                if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::TV)) {
-                    singleImageState = SingleImageState::DRC;
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_X)) {
-                if (state == MenuState::ShowAllImages) {
-                    state = MenuState::SelectImagesDelete;
-                } else if (state == MenuState::SelectImagesDelete) {
-                    if (showConfirmationDialog(renderer)) {
-                        if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
-                            std::vector<ImagesPair> removedImages;
-                            for (auto &image : images) {
-                                if (image.selected) {
-                                    removedImages.push_back(image);
-                                    if (!image.pathTV.empty()) {
-                                        std::filesystem::remove(image.pathTV);
-                                    }
-                                    if (!image.pathDRC.empty()) {
-                                        std::filesystem::remove(image.pathDRC);
-                                    }
-                                    if (image.textureTV && image.textureTV != blackTexture.texture) {
-                                        SDL_DestroyTexture(image.textureTV);
-                                        image.textureTV = nullptr;
-                                    }
-                                    if (image.textureDRC && image.textureDRC != blackTexture.texture) {
-                                        SDL_DestroyTexture(image.textureDRC);
-                                        image.textureDRC = nullptr;
-                                    }
-                                }
-                            }
-                            for (auto &image : removedImages) {
-                                auto it = std::find(images.begin(), images.end(), image);
-                                if (it != images.end()) {
-                                    images.erase(it);
-                                }
-                            }
-                            removedImages.clear();
-                            removedImages.shrink_to_fit();
-                            selectedImageIndex = 0;
-                            int totalImages = static_cast<int>(images.size());
-                            for (int i = 0; i < totalImages; ++i) {
-                                int row = i / GRID_SIZE;
-                                int col = i % GRID_SIZE;
-                                images[i].x = offsetX + col * (IMAGE_WIDTH + SEPARATION);
-                                images[i].y = offsetY + row * (IMAGE_WIDTH + SEPARATION);
-                            }
-                        }
-                        state = MenuState::ShowAllImages;
-                    }
-                }
-            } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
-                state = MenuState::ShowAllImages;
-                singleImageState = SingleImageState::TV;
-                if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
-                    for (auto &image : images) {
-                        image.selected = false;
-                    }
-                }
+                default:
+                    break;
             }
         }
 
@@ -685,7 +647,6 @@ int main() {
                 }
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
-
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             switch (singleImageState) {
