@@ -70,6 +70,7 @@ struct Particle {
 const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
+SDL_Texture *particleTexture = nullptr;
 Texture blackTexture;
 Texture headerTexture;
 Texture backgroundTexture;
@@ -326,6 +327,11 @@ int main() {
     if (!orbTexture) {
         return 1;
     }
+    particleTexture = IMG_LoadTexture(renderer, "romfs:/orb.png");
+    if (!particleTexture) {
+        return 1;
+    }
+
     backgroundTexture.originalRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
     cornerButtonTexture.originalRect = {0, SCREEN_HEIGHT - 256, 256, 256};
     largeCornerButtonTexture.originalRect = {SCREEN_WIDTH - 512, 0, 512, 256};
@@ -584,8 +590,7 @@ int main() {
             }
         }
         for (const Particle &particle : particles) {
-            SDL_RenderCopy(renderer, orbTexture, nullptr, &particle.rect);
-            SDL_RenderFillRect(renderer, &particle.rect);
+            SDL_RenderCopy(renderer, particleTexture, nullptr, &particle.rect);
         }
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
@@ -688,6 +693,9 @@ int main() {
     }
     if (orbTexture) {
         SDL_DestroyTexture(orbTexture);
+    }
+    if (particleTexture) {
+        SDL_DestroyTexture(particleTexture);
     }
     if (largeCornerButtonTexture.texture) {
         SDL_DestroyTexture(largeCornerButtonTexture.texture);
