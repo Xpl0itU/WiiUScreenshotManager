@@ -57,7 +57,6 @@ enum class SingleImageState {
 struct Texture {
     SDL_Texture *texture;
     SDL_Rect rect;
-    SDL_Rect originalRect;
 };
 
 struct Particle {
@@ -71,6 +70,7 @@ const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
 SDL_Texture *particleTexture = nullptr;
+Texture messageBoxButtonTexture;
 Texture blackTexture;
 Texture headerTexture;
 Texture backgroundTexture;
@@ -78,6 +78,7 @@ Texture cornerButtonTexture;
 Texture largeCornerButtonTexture;
 Texture backGraphicTexture;
 Texture arrowTexture;
+Texture messageBoxTexture;
 
 std::vector<Particle> particles;
 
@@ -172,26 +173,45 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
     SDL_RenderFillRect(renderer, nullptr);
 
-    int rectWidth = FC_GetWidth(font, "Are you sure you want to delete the selected images?") + 40;
-    int buttonsHeight = FC_GetHeight(font, BUTTON_A "Confirm") + FC_GetHeight(font, BUTTON_B "Cancel");
-    int messageHeight = FC_GetHeight(font, "Are you sure you want to delete the selected images?");
-    int rectHeight = buttonsHeight + messageHeight;
+    SDL_RenderCopy(renderer, messageBoxTexture.texture, nullptr, &messageBoxTexture.rect);
 
-    drawRectFilled(renderer, SCREEN_WIDTH / 2 - rectWidth / 2, SCREEN_HEIGHT / 2 - rectHeight / 2, rectWidth, rectHeight, SCREEN_COLOR_D_RED);
+    SDL_Rect cancelButtonRect = messageBoxButtonTexture.rect;
+    cancelButtonRect.y = messageBoxTexture.rect.y + messageBoxTexture.rect.h - cancelButtonRect.h;
+    SDL_RenderCopy(renderer, messageBoxButtonTexture.texture, nullptr, &cancelButtonRect);
 
-    FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2), SCREEN_COLOR_WHITE, "Are you sure you want to delete the selected images?");
-    FC_DrawColor(font, renderer, SCREEN_WIDTH / 2 - rectWidth / 2, (SCREEN_HEIGHT / 2 - rectHeight / 2) + messageHeight * 2, SCREEN_COLOR_WHITE, BUTTON_A "Confirm"
-                                                                                                                                                          " " BUTTON_B "Cancel");
+    SDL_Rect confirmButtonRect = cancelButtonRect;
+    confirmButtonRect.y = (cancelButtonRect.y - confirmButtonRect.h) + 50;
+    SDL_RenderCopy(renderer, messageBoxButtonTexture.texture, nullptr, &confirmButtonRect);
+
+    int boxTextWidth = FC_GetWidth(font, "Delete selected images?");
+    int boxTextHeight = FC_GetHeight(font, "Delete selected images?");
+
+    int cancelWidth = FC_GetWidth(font, BUTTON_B " Cancel");
+    int cancelHeight = FC_GetHeight(font, BUTTON_B " Cancel");
+
+    int confirmWidth = FC_GetWidth(font, BUTTON_A " Confirm");
+    int confirmHeight = FC_GetHeight(font, BUTTON_A " Confirm");
+
+    FC_DrawColor(font, renderer, (SCREEN_WIDTH / 2 - boxTextWidth) + messageBoxTexture.rect.x / 2, messageBoxTexture.rect.y + boxTextHeight, SCREEN_COLOR_BLACK, "Delete selected images?");
+    FC_DrawColor(font, renderer, (cancelButtonRect.x + cancelButtonRect.w / 2) - cancelWidth / 2, (cancelButtonRect.y + cancelButtonRect.h / 2) - cancelHeight / 2, SCREEN_COLOR_BLACK, BUTTON_B " Cancel");
+    FC_DrawColor(font, renderer, (confirmButtonRect.x + confirmButtonRect.w / 2) - confirmWidth / 2, (confirmButtonRect.y + confirmButtonRect.h / 2) - confirmHeight / 2, SCREEN_COLOR_BLACK, BUTTON_A " Confirm");
 
     SDL_RenderPresent(renderer);
 
     Input input;
+    SDL_Event event;
     while (State::AppRunning()) {
         input.read();
-        if (input.get(TRIGGER, PAD_BUTTON_A)) {
-            return true;
-        } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
-            return false;
+        while (SDL_PollEvent(&event)) {
+            if (input.get(TRIGGER, PAD_BUTTON_A)) {
+                return true;
+            } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, confirmButtonRect)) {
+                return true;
+            } else if (input.get(TRIGGER, PAD_BUTTON_B)) {
+                return false;
+            } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, cancelButtonRect)) {
+                return false;
+            }
         }
     }
 
@@ -341,20 +361,25 @@ int main() {
         SDL_Quit();
         return 1;
     }
+    messageBoxTexture.texture = IMG_LoadTexture(renderer, "romfs:/messageBox.png");
+    if (!messageBoxTexture.texture) {
+        SDL_Quit();
+        return 1;
+    }
+    messageBoxButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/messageBoxButton.png");
+    if (!messageBoxButtonTexture.texture) {
+        SDL_Quit();
+        return 1;
+    }
 
-    backgroundTexture.originalRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-    cornerButtonTexture.originalRect = {0, SCREEN_HEIGHT - 256, 256, 256};
-    largeCornerButtonTexture.originalRect = {SCREEN_WIDTH - 512, 0, 512, 256};
-    backGraphicTexture.originalRect = {0, SCREEN_HEIGHT - 128, 128, 128};
-    headerTexture.originalRect = {0, 0, SCREEN_WIDTH, 256};
-    arrowTexture.originalRect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
-
-    backgroundTexture.rect = backgroundTexture.originalRect;
-    cornerButtonTexture.rect = cornerButtonTexture.originalRect;
-    largeCornerButtonTexture.rect = largeCornerButtonTexture.originalRect;
-    backGraphicTexture.rect = backGraphicTexture.originalRect;
-    headerTexture.rect = headerTexture.originalRect;
-    arrowTexture.rect = arrowTexture.originalRect;
+    backgroundTexture.rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    cornerButtonTexture.rect = {0, SCREEN_HEIGHT - 256, 256, 256};
+    largeCornerButtonTexture.rect = {SCREEN_WIDTH - 512, 0, 512, 256};
+    backGraphicTexture.rect = {0, SCREEN_HEIGHT - 128, 128, 128};
+    headerTexture.rect = {0, 0, SCREEN_WIDTH, 256};
+    arrowTexture.rect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
+    messageBoxTexture.rect = {SCREEN_WIDTH / 2 - 1048 / 2, SCREEN_HEIGHT / 2 - 699 / 2, 1048, 699};
+    messageBoxButtonTexture.rect = {SCREEN_WIDTH / 2 - 436 / 2, SCREEN_HEIGHT / 2 - 145 / 2, 436, 145};
 
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -620,8 +645,8 @@ int main() {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
             } else {
                 SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
-                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
                 SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
+                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
                 FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
                 for (size_t i = 0; i < images.size(); ++i) {
                     if (isImageVisible(images[i], scrollOffsetY)) {
@@ -722,6 +747,12 @@ int main() {
     }
     if (largeCornerButtonTexture.texture) {
         SDL_DestroyTexture(largeCornerButtonTexture.texture);
+    }
+    if (messageBoxTexture.texture) {
+        SDL_DestroyTexture(messageBoxTexture.texture);
+    }
+    if (messageBoxButtonTexture.texture) {
+        SDL_DestroyTexture(messageBoxButtonTexture.texture);
     }
 
     FC_FreeFont(font);
