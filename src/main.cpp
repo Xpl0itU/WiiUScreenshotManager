@@ -19,6 +19,7 @@
 #define IMAGE_HEIGHT        SCREEN_HEIGHT / GRID_SIZE / 2
 #define SEPARATION          IMAGE_WIDTH / 4
 #define FONT_SIZE           36
+#define TRAIL_LENGTH        20
 #define SCREEN_COLOR_BLACK  ((SDL_Color){.r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF})
 #define SCREEN_COLOR_WHITE  ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
 #define SCREEN_COLOR_YELLOW ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF})
@@ -69,6 +70,7 @@ const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
 FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
 SDL_Texture *particleTexture = nullptr;
+SDL_Texture *ghostPointerTexture = nullptr;
 Texture messageBoxButtonTexture;
 Texture blackTexture;
 Texture headerTexture;
@@ -78,8 +80,10 @@ Texture largeCornerButtonTexture;
 Texture backGraphicTexture;
 Texture arrowTexture;
 Texture messageBoxTexture;
+Texture pointerTexture;
 
 std::vector<Particle> particles;
+std::vector<SDL_Point> pointerTrail;
 
 bool fileEndsWith(const std::string &filename, const std::string &extension) {
     return filename.size() >= extension.size() && std::equal(extension.rbegin(), extension.rend(), filename.rbegin());
@@ -112,6 +116,27 @@ Particle generateParticle(float x, float y) {
     particle.size = (rand() % 20) + 10;
 
     return particle;
+}
+
+void initializeGhostPointerTexture(SDL_Renderer *renderer) {
+    ghostPointerTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, pointerTexture.rect.w, pointerTexture.rect.h);
+
+    SDL_SetRenderTarget(renderer, ghostPointerTexture);
+    SDL_SetRenderDrawColor(renderer, 144, 238, 144, 100);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderTarget(renderer, nullptr);
+}
+
+void renderGhostPointers(SDL_Renderer *renderer, const std::vector<SDL_Point> &trail) {
+    if (!ghostPointerTexture) return;
+
+    SDL_SetTextureBlendMode(ghostPointerTexture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(ghostPointerTexture, 100);
+
+    for (const auto &point : trail) {
+        SDL_Rect destRect = {point.x, point.y, pointerTexture.rect.w, pointerTexture.rect.h};
+        SDL_RenderCopy(renderer, ghostPointerTexture, nullptr, &destRect);
+    }
 }
 
 bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
@@ -366,6 +391,11 @@ int main() {
         SDL_Quit();
         return 1;
     }
+    pointerTexture.texture = IMG_LoadTexture(renderer, "romfs:/orb.png");
+    if (!pointerTexture.texture) {
+        SDL_Quit();
+        return 1;
+    }
 
     backgroundTexture.rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
     cornerButtonTexture.rect = {0, SCREEN_HEIGHT - 256, 256, 256};
@@ -375,6 +405,7 @@ int main() {
     arrowTexture.rect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
     messageBoxTexture.rect = {SCREEN_WIDTH / 2 - 1048 / 2, SCREEN_HEIGHT / 2 - 699 / 2, 1048, 699};
     messageBoxButtonTexture.rect = {SCREEN_WIDTH / 2 - 436 / 2, SCREEN_HEIGHT / 2 - 145 / 2, 436, 145};
+    pointerTexture.rect = {0, 0, 30, 30};
 
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -391,6 +422,7 @@ int main() {
     int initialSelectedImageIndex;
     SDL_Event event;
     SDL_Joystick *j;
+    initializeGhostPointerTexture(renderer);
     while (State::AppRunning()) {
         deleteImagesSelected = false;
         pressedBack = false;
@@ -493,8 +525,11 @@ int main() {
                 case SDL_FINGERDOWN:
                     x = event.tfinger.x * SCREEN_WIDTH;
                     y = event.tfinger.y * SCREEN_HEIGHT;
+                    pointerTexture.rect.x = x - pointerTexture.rect.w / 2;
+                    pointerTexture.rect.y = y - pointerTexture.rect.h / 2;
                     initialTouchY = y;
                     initialSelectedImageIndex = selectedImageIndex;
+                    pointerTrail.clear();
                     if (state == MenuState::ShowAllImages) {
                         for (auto image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
@@ -542,6 +577,13 @@ int main() {
                 case SDL_FINGERMOTION:
                     x = event.tfinger.x * SCREEN_WIDTH;
                     y = event.tfinger.y * SCREEN_HEIGHT;
+                    pointerTexture.rect.x = x - pointerTexture.rect.w / 2;
+                    pointerTexture.rect.y = y - pointerTexture.rect.h / 2;
+                    pointerTrail.push_back({pointerTexture.rect.x, pointerTexture.rect.y});
+
+                    if (pointerTrail.size() > TRAIL_LENGTH) {
+                        pointerTrail.erase(pointerTrail.begin());
+                    }
                     if (initialTouchY != -1 && isCameraScrolling) {
                         int touchDeltaY = y - initialTouchY;
                         scrollOffsetY += touchDeltaY;
@@ -694,6 +736,12 @@ int main() {
                 }
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
+            if (isCameraScrolling) {
+                renderGhostPointers(renderer, pointerTrail);
+                SDL_SetTextureBlendMode(pointerTexture.texture, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureColorMod(pointerTexture.texture, 144, 238, 144);
+                SDL_RenderCopy(renderer, pointerTexture.texture, nullptr, &pointerTexture.rect);
+            }
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
             switch (singleImageState) {
@@ -717,6 +765,12 @@ int main() {
             SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
             SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.rect);
             SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
+            if (isCameraScrolling) {
+                renderGhostPointers(renderer, pointerTrail);
+                SDL_SetTextureBlendMode(pointerTexture.texture, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureColorMod(pointerTexture.texture, 144, 238, 144);
+                SDL_RenderCopy(renderer, pointerTexture.texture, nullptr, &pointerTexture.rect);
+            }
             SDL_RenderPresent(renderer);
         }
     }
@@ -761,6 +815,12 @@ int main() {
     }
     if (messageBoxButtonTexture.texture) {
         SDL_DestroyTexture(messageBoxButtonTexture.texture);
+    }
+    if (pointerTexture.texture) {
+        SDL_DestroyTexture(pointerTexture.texture);
+    }
+    if (ghostPointerTexture) {
+        SDL_DestroyTexture(ghostPointerTexture);
     }
 
     FC_FreeFont(font);
