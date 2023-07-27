@@ -3,14 +3,18 @@
 #include <SDL_FontCache.h>
 #include <StateUtils.h>
 #include <algorithm>
+#include <coreinit/filesystem.h>
+#include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <filesystem>
 #include <iostream>
+#include <nn/erreula.h>
 #include <romfs-wiiu.h>
 #include <sndcore2/core.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <vpad/input.h>
 
 #define SCREEN_WIDTH        1920
 #define SCREEN_HEIGHT       1080
@@ -193,51 +197,56 @@ void drawOrb(SDL_Renderer *renderer, int x, int y, int size, bool selected) {
 }
 
 bool showConfirmationDialog(SDL_Renderer *renderer) {
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
-    SDL_RenderFillRect(renderer, nullptr);
+    FSClient *fsClient = (FSClient *) MEMAllocFromDefaultHeap(sizeof(FSClient));
+    FSAddClient(fsClient, FS_ERROR_FLAG_NONE);
 
-    SDL_RenderCopy(renderer, messageBoxTexture.texture, nullptr, &messageBoxTexture.rect);
-
-    SDL_Rect cancelButtonRect = messageBoxButtonTexture.rect;
-    cancelButtonRect.y = messageBoxTexture.rect.y + messageBoxTexture.rect.h - cancelButtonRect.h;
-    SDL_RenderCopy(renderer, messageBoxButtonTexture.texture, nullptr, &cancelButtonRect);
-
-    SDL_Rect confirmButtonRect = cancelButtonRect;
-    confirmButtonRect.y = (cancelButtonRect.y - confirmButtonRect.h) + 50;
-    SDL_RenderCopy(renderer, messageBoxButtonTexture.texture, nullptr, &confirmButtonRect);
-
-    int boxTextWidth = FC_GetWidth(font, "Delete selected images?");
-    int boxTextHeight = FC_GetHeight(font, "Delete selected images?");
-
-    int cancelWidth = FC_GetWidth(font, BUTTON_B " Cancel");
-    int cancelHeight = FC_GetHeight(font, BUTTON_B " Cancel");
-
-    int confirmWidth = FC_GetWidth(font, BUTTON_A " Confirm");
-    int confirmHeight = FC_GetHeight(font, BUTTON_A " Confirm");
-
-    FC_DrawColor(font, renderer, (SCREEN_WIDTH / 2 - boxTextWidth) + messageBoxTexture.rect.x / 2, messageBoxTexture.rect.y + boxTextHeight, SCREEN_COLOR_BLACK, "Delete selected images?");
-    FC_DrawColor(font, renderer, (cancelButtonRect.x + cancelButtonRect.w / 2) - cancelWidth / 2, (cancelButtonRect.y + cancelButtonRect.h / 2) - cancelHeight / 2, SCREEN_COLOR_BLACK, BUTTON_B " Cancel");
-    FC_DrawColor(font, renderer, (confirmButtonRect.x + confirmButtonRect.w / 2) - confirmWidth / 2, (confirmButtonRect.y + confirmButtonRect.h / 2) - confirmHeight / 2, SCREEN_COLOR_BLACK, BUTTON_A " Confirm");
-
-    SDL_RenderPresent(renderer);
-
-    SDL_Event event;
-    while (State::AppRunning()) {
-        while (SDL_PollEvent(&event)) {
-            if ((event.type == SDL_JOYBUTTONDOWN) && (event.jbutton.button == SDL_CONTROLLER_BUTTON_A)) {
-                return true;
-            } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, confirmButtonRect)) {
-                return true;
-            } else if ((event.type == SDL_JOYBUTTONDOWN) && (event.jbutton.button == SDL_CONTROLLER_BUTTON_B)) {
-                return false;
-            } else if ((event.type == SDL_FINGERDOWN) && isPointInsideRect(event.tfinger.x * SCREEN_WIDTH, event.tfinger.y * SCREEN_HEIGHT, cancelButtonRect)) {
-                return false;
-            }
-        }
+    nn::erreula::CreateArg createArg;
+    createArg.region = nn::erreula::RegionType::USA;
+    createArg.language = nn::erreula::LangType::English;
+    createArg.workMemory = MEMAllocFromDefaultHeap(nn::erreula::GetWorkMemorySize());
+    createArg.fsClient = fsClient;
+    if (!nn::erreula::Create(createArg)) {
+        return false;
     }
 
-    return false;
+    nn::erreula::AppearArg appearArg;
+    appearArg.errorArg.errorType = nn::erreula::ErrorType::Message2Button;
+    appearArg.errorArg.renderTarget = nn::erreula::RenderTarget::Both;
+    appearArg.errorArg.controllerType = nn::erreula::ControllerType::DrcGamepad;
+    appearArg.errorArg.errorMessage = u"Are you sure you want to delete the selected images?";
+    appearArg.errorArg.button1Label = u"Cancel";
+    appearArg.errorArg.button2Label = u"Confirm";
+    nn::erreula::AppearErrorViewer(appearArg);
+    while (State::AppRunning()) {
+        VPADStatus vpadStatus;
+        VPADRead(VPAD_CHAN_0, &vpadStatus, 1, nullptr);
+        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &vpadStatus.tpNormal, &vpadStatus.tpNormal);
+
+        nn::erreula::ControllerInfo controllerInfo;
+        controllerInfo.vpad = &vpadStatus;
+        controllerInfo.kpad[0] = nullptr;
+        controllerInfo.kpad[1] = nullptr;
+        controllerInfo.kpad[2] = nullptr;
+        controllerInfo.kpad[3] = nullptr;
+        nn::erreula::Calc(controllerInfo);
+
+        if (nn::erreula::IsDecideSelectButtonError()) {
+            nn::erreula::DisappearErrorViewer();
+            break;
+        }
+        nn::erreula::DrawTV();
+        nn::erreula::DrawDRC();
+        SDL_RenderPresent(renderer);
+    }
+    nn::erreula::Destroy();
+    MEMFreeToDefaultHeap(createArg.workMemory);
+
+    FSDelClient(fsClient, FS_ERROR_FLAG_NONE);
+    MEMFreeToDefaultHeap(fsClient);
+
+    int32_t resultCode = nn::erreula::GetResultCode();
+
+    return static_cast<bool>(resultCode);
 }
 
 std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, SDL_Renderer *renderer, int offsetX, int offsetY) {
@@ -301,6 +310,7 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
 }
 
 int main() {
+    FSInit();
     AXInit();
     AXQuit();
     State::init();
@@ -829,6 +839,7 @@ int main() {
     SDL_DestroyWindow(window);
     SDL_Quit();
     IMG_Quit();
+    FSShutdown();
 
     romfsExit();
 
