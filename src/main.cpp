@@ -386,6 +386,9 @@ int main() {
 
     bool deleteImagesSelected = false;
     bool pressedBack = false;
+    bool isCameraScrolling = false;
+    int initialTouchY = -1;
+    int initialSelectedImageIndex;
     SDL_Event event;
     SDL_Joystick *j;
     while (State::AppRunning()) {
@@ -490,16 +493,20 @@ int main() {
                 case SDL_FINGERDOWN:
                     x = event.tfinger.x * SCREEN_WIDTH;
                     y = event.tfinger.y * SCREEN_HEIGHT;
+                    initialTouchY = y;
+                    initialSelectedImageIndex = selectedImageIndex;
                     if (state == MenuState::ShowAllImages) {
-                        if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
-                            state = MenuState::SelectImagesDelete;
-                        }
                         for (auto image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 state = MenuState::ShowSingleImage;
                                 break;
                             }
+                        }
+                        if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
+                            state = MenuState::SelectImagesDelete;
+                        } else {
+                            isCameraScrolling = true;
                         }
                     } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
                         if (state == MenuState::SelectImagesDelete) {
@@ -526,6 +533,38 @@ int main() {
                                 }
                             }
                         }
+                    }
+                    break;
+                case SDL_FINGERUP:
+                    initialTouchY = -1;
+                    isCameraScrolling = false;
+                    break;
+                case SDL_FINGERMOTION:
+                    x = event.tfinger.x * SCREEN_WIDTH;
+                    y = event.tfinger.y * SCREEN_HEIGHT;
+                    if (initialTouchY != -1 && isCameraScrolling) {
+                        int touchDeltaY = y - initialTouchY;
+                        scrollOffsetY += touchDeltaY;
+                        int maxScrollOffsetY = (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
+                        if (scrollOffsetY > 0) {
+                            scrollOffsetY = 0;
+                        } else if (scrollOffsetY < -maxScrollOffsetY) {
+                            scrollOffsetY = -maxScrollOffsetY;
+                        }
+
+                        int rowsScrolled = std::abs(scrollOffsetY) / (IMAGE_HEIGHT + SEPARATION);
+                        int newRow = initialSelectedImageIndex / GRID_SIZE;
+                        if (scrollOffsetY > 0) {
+                            newRow -= rowsScrolled;
+                        } else if (scrollOffsetY < 0) {
+                            newRow += rowsScrolled - 1;
+                        }
+
+                        newRow = std::max(0, std::min(newRow, (int) ((images.size() - 1) / GRID_SIZE)));
+
+                        selectedImageIndex = newRow * GRID_SIZE + (initialSelectedImageIndex % GRID_SIZE);
+
+                        initialTouchY = y;
                     }
                     break;
                 default:
