@@ -75,7 +75,6 @@ FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
 SDL_Texture *particleTexture = nullptr;
 SDL_Texture *ghostPointerTexture = nullptr;
-Texture messageBoxButtonTexture;
 Texture blackTexture;
 Texture headerTexture;
 Texture backgroundTexture;
@@ -83,7 +82,6 @@ Texture cornerButtonTexture;
 Texture largeCornerButtonTexture;
 Texture backGraphicTexture;
 Texture arrowTexture;
-Texture messageBoxTexture;
 Texture pointerTexture;
 
 std::vector<Particle> particles;
@@ -391,16 +389,6 @@ int main() {
         SDL_Quit();
         return 1;
     }
-    messageBoxTexture.texture = IMG_LoadTexture(renderer, "romfs:/messageBox.png");
-    if (!messageBoxTexture.texture) {
-        SDL_Quit();
-        return 1;
-    }
-    messageBoxButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/messageBoxButton.png");
-    if (!messageBoxButtonTexture.texture) {
-        SDL_Quit();
-        return 1;
-    }
     pointerTexture.texture = IMG_LoadTexture(renderer, "romfs:/orb.png");
     if (!pointerTexture.texture) {
         SDL_Quit();
@@ -413,8 +401,6 @@ int main() {
     backGraphicTexture.rect = {0, SCREEN_HEIGHT - 128, 128, 128};
     headerTexture.rect = {0, 0, SCREEN_WIDTH, 256};
     arrowTexture.rect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
-    messageBoxTexture.rect = {SCREEN_WIDTH / 2 - 1048 / 2, SCREEN_HEIGHT / 2 - 699 / 2, 1048, 699};
-    messageBoxButtonTexture.rect = {SCREEN_WIDTH / 2 - 436 / 2, SCREEN_HEIGHT / 2 - 145 / 2, 436, 145};
     pointerTexture.rect = {0, 0, 30, 30};
 
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
@@ -819,12 +805,6 @@ int main() {
     }
     if (largeCornerButtonTexture.texture) {
         SDL_DestroyTexture(largeCornerButtonTexture.texture);
-    }
-    if (messageBoxTexture.texture) {
-        SDL_DestroyTexture(messageBoxTexture.texture);
-    }
-    if (messageBoxButtonTexture.texture) {
-        SDL_DestroyTexture(messageBoxButtonTexture.texture);
     }
     if (pointerTexture.texture) {
         SDL_DestroyTexture(pointerTexture.texture);
