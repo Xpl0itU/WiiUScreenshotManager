@@ -498,12 +498,20 @@ int main() {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 state = MenuState::ShowSingleImage;
+                                break;
                             }
                         }
                     } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
                         if (state == MenuState::SelectImagesDelete) {
                             if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
                                 deleteImagesSelected = true;
+                            }
+                            for (auto image : images) {
+                                if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
+                                    selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
+                                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                                    break;
+                                }
                             }
                         }
                         if (isPointInsideRect(x, y, cornerButtonTexture.rect)) {
