@@ -690,7 +690,7 @@ int main() {
                 } else {
                     SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 255, 255);
                     SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.rect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2)) - 5, (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select Items");
+                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2)) - 5, (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select");
                 }
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
