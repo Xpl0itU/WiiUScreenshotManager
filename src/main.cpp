@@ -1,8 +1,10 @@
+#include <Button.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
 #include <StateUtils.h>
 #include <algorithm>
+#include <chrono>
 #include <coreinit/filesystem.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
@@ -12,6 +14,7 @@
 #include <romfs-wiiu.h>
 #include <sndcore2/core.h>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 #include <vpad/input.h>
@@ -75,11 +78,11 @@ FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
 SDL_Texture *particleTexture = nullptr;
 SDL_Texture *ghostPointerTexture = nullptr;
+SDL_Texture *cornerButtonTexture = nullptr;
+SDL_Texture *largeCornerButtonTexture = nullptr;
 Texture blackTexture;
 Texture headerTexture;
 Texture backgroundTexture;
-Texture cornerButtonTexture;
-Texture largeCornerButtonTexture;
 Texture backGraphicTexture;
 Texture arrowTexture;
 Texture pointerTexture;
@@ -359,13 +362,13 @@ int main() {
         SDL_Quit();
         return 1;
     }
-    cornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/corner-button.png");
-    if (!cornerButtonTexture.texture) {
+    cornerButtonTexture = IMG_LoadTexture(renderer, "romfs:/corner-button.png");
+    if (!cornerButtonTexture) {
         SDL_Quit();
         return 1;
     }
-    largeCornerButtonTexture.texture = IMG_LoadTexture(renderer, "romfs:/large-corner-button.png");
-    if (!largeCornerButtonTexture.texture) {
+    largeCornerButtonTexture = IMG_LoadTexture(renderer, "romfs:/large-corner-button.png");
+    if (!largeCornerButtonTexture) {
         SDL_Quit();
         return 1;
     }
@@ -396,12 +399,31 @@ int main() {
     }
 
     backgroundTexture.rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-    cornerButtonTexture.rect = {0, SCREEN_HEIGHT - 256, 256, 256};
-    largeCornerButtonTexture.rect = {SCREEN_WIDTH - 512, 0, 512, 256};
     backGraphicTexture.rect = {0, SCREEN_HEIGHT - 128, 128, 128};
     headerTexture.rect = {0, 0, SCREEN_WIDTH, 256};
     arrowTexture.rect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
     pointerTexture.rect = {0, 0, 30, 30};
+
+    bool pressedBack = false;
+    bool deleteImagesSelected = false;
+
+    Button cornerButton(0, SCREEN_HEIGHT - 256, 256, 256, "", cornerButtonTexture, font, SDL_CONTROLLER_BUTTON_B, SCREEN_COLOR_WHITE);
+    cornerButton.setOnClick([&]() {
+        pressedBack = true;
+    });
+
+    Button largeCornerButton(SCREEN_WIDTH - 512, 0, 512, 256, BUTTON_X " Delete", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
+    largeCornerButton.setOnClick([&]() {
+        if (images.empty()) {
+            return;
+        }
+        if (state == MenuState::ShowAllImages) {
+            state = MenuState::SelectImagesDelete;
+        } else if (state == MenuState::SelectImagesDelete) {
+            deleteImagesSelected = true;
+        }
+    });
+    largeCornerButton.setFlip((SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
 
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -411,8 +433,6 @@ int main() {
         }
     }
 
-    bool deleteImagesSelected = false;
-    bool pressedBack = false;
     bool isCameraScrolling = false;
     int initialTouchY = -1;
     int initialSelectedImageIndex;
@@ -424,6 +444,8 @@ int main() {
         pressedBack = false;
         while (SDL_PollEvent(&event)) {
             int x, y;
+            cornerButton.handleEvent(event);
+            largeCornerButton.handleEvent(event);
             switch (event.type) {
                 case SDL_JOYDEVICEADDED:
                     j = SDL_JoystickOpen(event.jdevice.which);
@@ -443,16 +465,6 @@ int main() {
                                 } else if (state == MenuState::ShowAllImages) {
                                     state = MenuState::ShowSingleImage;
                                 }
-                            }
-                            break;
-                        case SDL_CONTROLLER_BUTTON_B:
-                            pressedBack = true;
-                            break;
-                        case SDL_CONTROLLER_BUTTON_X:
-                            if (state == MenuState::ShowAllImages) {
-                                state = MenuState::SelectImagesDelete;
-                            } else if (state == MenuState::SelectImagesDelete) {
-                                deleteImagesSelected = true;
                             }
                             break;
                         case 0xd: // SDL_CONTROLLER_BUTTON_DPAD_UP
@@ -534,16 +546,9 @@ int main() {
                                 break;
                             }
                         }
-                        if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
-                            state = MenuState::SelectImagesDelete;
-                        } else {
-                            isCameraScrolling = true;
-                        }
+                        isCameraScrolling = true;
                     } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
                         if (state == MenuState::SelectImagesDelete) {
-                            if (isPointInsideRect(x, y, largeCornerButtonTexture.rect)) {
-                                deleteImagesSelected = true;
-                            }
                             for (auto image : images) {
                                 if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                     selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
@@ -551,9 +556,7 @@ int main() {
                                     break;
                                 }
                             }
-                        }
-                        if (isPointInsideRect(x, y, cornerButtonTexture.rect)) {
-                            pressedBack = true;
+                            isCameraScrolling = true;
                         }
                         if (state == MenuState::ShowSingleImage) {
                             if (isPointInsideRect(x, y, arrowTexture.rect)) {
@@ -716,20 +719,18 @@ int main() {
                     }
                 }
 
-                SDL_SetTextureBlendMode(largeCornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureBlendMode(largeCornerButtonTexture, SDL_BLENDMODE_BLEND);
                 if (state == MenuState::SelectImagesDelete) {
-                    SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 0, 0);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.rect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2), (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, BUTTON_X " Delete");
-                    SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureColorMod(largeCornerButtonTexture, 255, 0, 0);
                     SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
-                    SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.rect);
+                    cornerButton.render(renderer);
                     SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
+                    largeCornerButton.setTextColor(SCREEN_COLOR_WHITE);
                 } else {
-                    SDL_SetTextureColorMod(largeCornerButtonTexture.texture, 255, 255, 255);
-                    SDL_RenderCopyEx(renderer, largeCornerButtonTexture.texture, nullptr, &largeCornerButtonTexture.rect, 0.0, nullptr, (SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
-                    FC_DrawColor(font, renderer, (largeCornerButtonTexture.rect.x + (largeCornerButtonTexture.rect.w / 2)) - 5, (largeCornerButtonTexture.rect.y + (largeCornerButtonTexture.rect.h / 2)) - 100, SCREEN_COLOR_BLACK, BUTTON_X " Select");
+                    SDL_SetTextureColorMod(largeCornerButtonTexture, 255, 255, 255);
+                    largeCornerButton.setTextColor(SCREEN_COLOR_BLACK);
                 }
+                largeCornerButton.render(renderer);
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
             if (isCameraScrolling) {
@@ -757,9 +758,8 @@ int main() {
                     SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect);
                     break;
             }
-            SDL_SetTextureBlendMode(cornerButtonTexture.texture, SDL_BLENDMODE_BLEND);
             SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
-            SDL_RenderCopy(renderer, cornerButtonTexture.texture, nullptr, &cornerButtonTexture.rect);
+            cornerButton.render(renderer);
             SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
             if (isCameraScrolling) {
                 renderGhostPointers(renderer, pointerTrail);
@@ -769,6 +769,8 @@ int main() {
             }
             SDL_RenderPresent(renderer);
         }
+        cornerButton.update();
+        largeCornerButton.update();
     }
 
     for (const auto &img : images) {
@@ -788,8 +790,8 @@ int main() {
     if (backgroundTexture.texture) {
         SDL_DestroyTexture(backgroundTexture.texture);
     }
-    if (cornerButtonTexture.texture) {
-        SDL_DestroyTexture(cornerButtonTexture.texture);
+    if (cornerButtonTexture) {
+        SDL_DestroyTexture(cornerButtonTexture);
     }
     if (backGraphicTexture.texture) {
         SDL_DestroyTexture(backGraphicTexture.texture);
@@ -803,8 +805,8 @@ int main() {
     if (particleTexture) {
         SDL_DestroyTexture(particleTexture);
     }
-    if (largeCornerButtonTexture.texture) {
-        SDL_DestroyTexture(largeCornerButtonTexture.texture);
+    if (largeCornerButtonTexture) {
+        SDL_DestroyTexture(largeCornerButtonTexture);
     }
     if (pointerTexture.texture) {
         SDL_DestroyTexture(pointerTexture.texture);
