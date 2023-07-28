@@ -266,7 +266,7 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         }
 
         std::string filename = entry.path().filename().string();
-        std::string baseFilename = filename.substr(0, filename.find_last_of('.'));
+        std::string baseFilename = filename.substr(0, filename.find_last_of('_'));
         if (fileEndsWith(filename, "_TV.jpg") || fileEndsWith(filename, "_TV.png") || fileEndsWith(filename, "_TV.bmp")) {
             baseFilenames[baseFilename].first = entry.path().string();
         } else if (fileEndsWith(filename, "_DRC.jpg") || fileEndsWith(filename, "_DRC.png") || fileEndsWith(filename, "_DRC.bmp")) {
