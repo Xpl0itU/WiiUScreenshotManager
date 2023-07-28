@@ -1,4 +1,5 @@
 #include <Button.h>
+#include <ImagePairScreen.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
@@ -19,8 +20,6 @@
 #include <vector>
 #include <vpad/input.h>
 
-#define SCREEN_WIDTH        1920
-#define SCREEN_HEIGHT       1080
 #define GRID_SIZE           4
 #define IMAGE_WIDTH         SCREEN_WIDTH / GRID_SIZE / 2
 #define IMAGE_HEIGHT        SCREEN_HEIGHT / GRID_SIZE / 2
@@ -37,28 +36,10 @@
 #define BUTTON_X            "\uE002"
 #define BUTTON_DPAD         "\uE07D"
 
-struct ImagesPair {
-    SDL_Texture *textureTV;
-    SDL_Texture *textureDRC;
-    int x, y;
-    bool selected;
-    std::string pathTV;
-    std::string pathDRC;
-
-    bool operator==(const ImagesPair &other) const {
-        return pathTV == other.pathTV && pathDRC == other.pathDRC;
-    }
-};
-
 enum class MenuState {
     ShowAllImages,
     SelectImagesDelete,
     ShowSingleImage,
-};
-
-enum class SingleImageState {
-    TV,
-    DRC,
 };
 
 struct Texture {
@@ -80,11 +61,11 @@ SDL_Texture *particleTexture = nullptr;
 SDL_Texture *ghostPointerTexture = nullptr;
 SDL_Texture *cornerButtonTexture = nullptr;
 SDL_Texture *largeCornerButtonTexture = nullptr;
+SDL_Texture *arrowTexture = nullptr;
 Texture blackTexture;
 Texture headerTexture;
 Texture backgroundTexture;
 Texture backGraphicTexture;
-Texture arrowTexture;
 Texture pointerTexture;
 
 std::vector<Particle> particles;
@@ -352,10 +333,9 @@ int main() {
     int scrollOffsetY = 0;
 
     MenuState state = MenuState::ShowAllImages;
-    SingleImageState singleImageState = SingleImageState::TV;
 
-    arrowTexture.texture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
-    if (!arrowTexture.texture) {
+    arrowTexture = IMG_LoadTexture(renderer, "romfs:/arrow_image.png");
+    if (!arrowTexture) {
         SDL_Quit();
         return 1;
     }
@@ -403,7 +383,6 @@ int main() {
     backgroundTexture.rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
     backGraphicTexture.rect = {0, SCREEN_HEIGHT - 128, 128, 128};
     headerTexture.rect = {0, 0, SCREEN_WIDTH, 256};
-    arrowTexture.rect = {0, (SCREEN_HEIGHT / 2) - 145, 290, 290};
     pointerTexture.rect = {0, 0, 30, 30};
 
     bool pressedBack = false;
@@ -440,6 +419,7 @@ int main() {
     int initialSelectedImageIndex;
     SDL_Event event;
     SDL_Joystick *j;
+    ImagePairScreen imagePairScreen(nullptr, arrowTexture, renderer);
     initializeGhostPointerTexture(renderer);
     while (State::AppRunning()) {
         deleteImagesSelected = false;
@@ -448,6 +428,9 @@ int main() {
             int x, y;
             cornerButton.handleEvent(event);
             largeCornerButton.handleEvent(event);
+            if (state == MenuState::ShowSingleImage) {
+                imagePairScreen.handleEvent(event);
+            }
             switch (event.type) {
                 case SDL_JOYDEVICEADDED:
                     j = SDL_JoystickOpen(event.jdevice.which);
@@ -466,6 +449,7 @@ int main() {
                                     images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
                                 } else if (state == MenuState::ShowAllImages) {
                                     state = MenuState::ShowSingleImage;
+                                    imagePairScreen.setImagePair(&images[selectedImageIndex]);
                                 }
                             }
                             break;
@@ -514,18 +498,12 @@ int main() {
                                     selectedImageIndex--;
                                 }
                             }
-                            if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::DRC)) {
-                                singleImageState = SingleImageState::TV;
-                            }
                             break;
                         case 0xe: // SDL_CONTROLLER_BUTTON_DPAD_RIGHT
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
                                     selectedImageIndex++;
                                 }
-                            }
-                            if ((state == MenuState::ShowSingleImage) && (singleImageState == SingleImageState::TV)) {
-                                singleImageState = SingleImageState::DRC;
                             }
                             break;
                         default:
@@ -546,6 +524,7 @@ int main() {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 state = MenuState::ShowSingleImage;
+                                imagePairScreen.setImagePair(&images[selectedImageIndex]);
                                 selectedImage = true;
                                 break;
                             }
@@ -553,26 +532,15 @@ int main() {
                         if (!selectedImage) {
                             isCameraScrolling = true;
                         }
-                    } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
-                        if (state == MenuState::SelectImagesDelete) {
-                            for (auto image : images) {
-                                if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
-                                    selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
-                                    images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
-                                    break;
-                                }
-                            }
-                            isCameraScrolling = true;
-                        }
-                        if (state == MenuState::ShowSingleImage) {
-                            if (isPointInsideRect(x, y, arrowTexture.rect)) {
-                                if (singleImageState == SingleImageState::TV) {
-                                    singleImageState = SingleImageState::DRC;
-                                } else if (singleImageState == SingleImageState::DRC) {
-                                    singleImageState = SingleImageState::TV;
-                                }
+                    } else if (state == MenuState::SelectImagesDelete) {
+                        for (auto image : images) {
+                            if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
+                                selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
+                                images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
+                                break;
                             }
                         }
+                        isCameraScrolling = true;
                     }
                     break;
                 case SDL_FINGERUP:
@@ -665,7 +633,6 @@ int main() {
 
         if (pressedBack) {
             state = MenuState::ShowAllImages;
-            singleImageState = SingleImageState::TV;
             if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
                 for (auto &image : images) {
                     image.selected = false;
@@ -764,23 +731,7 @@ int main() {
             }
             SDL_RenderPresent(renderer);
         } else if (state == MenuState::ShowSingleImage && selectedImageIndex >= 0 && selectedImageIndex < static_cast<int>(images.size())) {
-            switch (singleImageState) {
-                case SingleImageState::TV:
-                    arrowTexture.rect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.rect);
-                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect);
-                    break;
-                case SingleImageState::DRC:
-                    arrowTexture.rect.x = 0;
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureDRC, nullptr, &backgroundTexture.rect);
-                    SDL_RenderCopyEx(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
-                    break;
-                default:
-                    arrowTexture.rect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
-                    SDL_RenderCopy(renderer, images[selectedImageIndex].textureTV, nullptr, &backgroundTexture.rect);
-                    SDL_RenderCopy(renderer, arrowTexture.texture, nullptr, &arrowTexture.rect);
-                    break;
-            }
+            imagePairScreen.render();
             SDL_SetTextureBlendMode(backGraphicTexture.texture, SDL_BLENDMODE_BLEND);
             cornerButton.render(renderer);
             SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
@@ -807,8 +758,8 @@ int main() {
     if (blackTexture.texture) {
         SDL_DestroyTexture(blackTexture.texture);
     }
-    if (arrowTexture.texture) {
-        SDL_DestroyTexture(arrowTexture.texture);
+    if (arrowTexture) {
+        SDL_DestroyTexture(arrowTexture);
     }
     if (backgroundTexture.texture) {
         SDL_DestroyTexture(backgroundTexture.texture);

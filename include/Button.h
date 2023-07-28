@@ -30,6 +30,14 @@ public:
 
     void setTextColor(SDL_Color color);
 
+    void setTexture(SDL_Texture *texture);
+
+    void setRect(SDL_Rect rect);
+
+    void setButton(int button);
+
+    bool isAnimationInProgress() const;
+
 private:
     int x, y, width, height;
     int originalX, originalY, originalWidth, originalHeight;
@@ -48,7 +56,7 @@ private:
     };
 
     std::queue<Animation> animationQueue;
-    const int maxExpansion;
+    int maxExpansion;
 
     OnClickFunction onClickFunction;
 

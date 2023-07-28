@@ -158,3 +158,27 @@ void Button::setFlip(SDL_RendererFlip flip) {
 void Button::setTextColor(SDL_Color color) {
     this->textColor = color;
 }
+
+void Button::setTexture(SDL_Texture *texture) {
+    this->texture = texture;
+}
+
+void Button::setRect(SDL_Rect rect) {
+    x = rect.x;
+    y = rect.y;
+    width = rect.w;
+    height = rect.h;
+    originalX = x;
+    originalY = y;
+    originalWidth = width;
+    originalHeight = height;
+    maxExpansion = width * 2;
+}
+
+void Button::setButton(int button) {
+    this->button = button;
+}
+
+bool Button::isAnimationInProgress() const {
+    return !animationQueue.empty();
+}
