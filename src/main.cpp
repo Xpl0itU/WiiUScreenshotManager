@@ -155,7 +155,7 @@ bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
 }
 
 SDL_Texture *loadTexture(SDL_Renderer *renderer, const std::string path) {
-    SDL_Surface *surface = IMG_LoadTexture(path.c_str());
+    SDL_Texture *texture = IMG_LoadTexture(path.c_str());
     if (texture) {
         return texture;
     }
