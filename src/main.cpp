@@ -539,14 +539,18 @@ int main() {
                     initialSelectedImageIndex = selectedImageIndex;
                     pointerTrail.clear();
                     if (state == MenuState::ShowAllImages) {
+                        bool selectedImage = false;
                         for (auto image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 state = MenuState::ShowSingleImage;
+                                selectedImage = true;
                                 break;
                             }
                         }
-                        isCameraScrolling = true;
+                        if (!selectedImage) {
+                            isCameraScrolling = true;
+                        }
                     } else if ((state == MenuState::SelectImagesDelete) || (state == MenuState::ShowSingleImage)) {
                         if (state == MenuState::SelectImagesDelete) {
                             for (auto image : images) {
