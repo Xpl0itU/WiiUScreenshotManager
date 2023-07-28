@@ -154,6 +154,14 @@ bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
     return (imageBottom >= screenTop) && (imageTop <= screenBottom);
 }
 
+SDL_Texture *loadTexture(SDL_Renderer *renderer, const std::string path) {
+    SDL_Surface *surface = IMG_LoadTexture(path.c_str());
+    if (texture) {
+        return texture;
+    }
+    return blackTexture.texture;
+}
+
 void drawRectFilled(SDL_Renderer *renderer, int x, int y, int w, int h, SDL_Color color) {
     SDL_Color prevColor = {0, 0, 0, 0};
     SDL_GetRenderDrawColor(renderer, &prevColor.r, &prevColor.g, &prevColor.b, &prevColor.a);
@@ -250,7 +258,7 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     return static_cast<bool>(resultCode);
 }
 
-std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, SDL_Renderer *renderer, int offsetX, int offsetY) {
+std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, int offsetX, int offsetY) {
     std::vector<ImagesPair> imagePairs;
     int pairIndex = 1;
 
@@ -274,26 +282,15 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         }
     }
 
-    blackTexture.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
-    SDL_SetRenderTarget(renderer, blackTexture.texture);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_SetRenderTarget(renderer, NULL);
-
     for (const auto &[baseFilename, paths] : baseFilenames) {
         std::string tvPath = paths.first;
         std::string drcPath = paths.second;
 
         if ((tvPath.empty() || std::filesystem::exists(tvPath)) || (drcPath.empty() || std::filesystem::exists(drcPath))) {
-            SDL_Surface *surfaceTV = tvPath.empty() ? nullptr : IMG_Load(tvPath.c_str());
-            SDL_Surface *surfaceDRC = drcPath.empty() ? nullptr : IMG_Load(drcPath.c_str());
-
             ImagesPair imgPair;
-            imgPair.textureTV = surfaceTV ? SDL_CreateTextureFromSurface(renderer, surfaceTV) : blackTexture.texture;
-            imgPair.textureDRC = surfaceDRC ? SDL_CreateTextureFromSurface(renderer, surfaceDRC) : blackTexture.texture;
 
-            if (surfaceTV) SDL_FreeSurface(surfaceTV);
-            if (surfaceDRC) SDL_FreeSurface(surfaceDRC);
+            imgPair.textureTV = nullptr;
+            imgPair.textureDRC = nullptr;
 
             imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
             imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
@@ -343,7 +340,13 @@ int main() {
     int offsetX = (SCREEN_WIDTH - totalWidth) / 2;
     int offsetY = (SCREEN_HEIGHT - totalHeight) / 2;
 
-    std::vector<ImagesPair> images = scanImagePairsInSubfolders(imagePath, renderer, offsetX, offsetY);
+    blackTexture.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
+    SDL_SetRenderTarget(renderer, blackTexture.texture);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderTarget(renderer, nullptr);
+
+    std::vector<ImagesPair> images = scanImagePairsInSubfolders(imagePath, offsetX, offsetY);
 
     int selectedImageIndex = 0;
     int scrollOffsetY = 0;
@@ -356,7 +359,6 @@ int main() {
         SDL_Quit();
         return 1;
     }
-
     backgroundTexture.texture = IMG_LoadTexture(renderer, "romfs:/backdrop.png");
     if (!backgroundTexture.texture) {
         SDL_Quit();
@@ -704,6 +706,12 @@ int main() {
                 FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
                 for (size_t i = 0; i < images.size(); ++i) {
                     if (isImageVisible(images[i], scrollOffsetY)) {
+                        if ((images[i].textureTV == nullptr)) {
+                            images[i].textureTV = loadTexture(renderer, images[i].pathTV);
+                        }
+                        if ((images[i].textureDRC == nullptr)) {
+                            images[i].textureDRC = loadTexture(renderer, images[i].pathDRC);
+                        }
                         SDL_Rect destRectTV = {images[i].x, headerTexture.rect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
                         SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.rect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
                         if (images[i].selected) {
@@ -719,6 +727,15 @@ int main() {
                         SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                         if (state == MenuState::SelectImagesDelete) {
                             drawOrb(renderer, images[i].x - 10, headerTexture.rect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
+                        }
+                    } else {
+                        if (images[i].textureTV && images[i].textureTV != blackTexture.texture) {
+                            SDL_DestroyTexture(images[i].textureTV);
+                            images[i].textureTV = nullptr;
+                        }
+                        if (images[i].textureDRC && images[i].textureDRC != blackTexture.texture) {
+                            SDL_DestroyTexture(images[i].textureDRC);
+                            images[i].textureDRC = nullptr;
                         }
                     }
                 }
