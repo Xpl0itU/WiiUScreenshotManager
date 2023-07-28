@@ -172,7 +172,6 @@ void Button::setRect(SDL_Rect rect) {
     originalY = y;
     originalWidth = width;
     originalHeight = height;
-    maxExpansion = width * 2;
 }
 
 void Button::setButton(int button) {

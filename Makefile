@@ -35,7 +35,7 @@ ROMFS 		:= 	romfs
 CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
 				-fuse-linker-plugin -fipa-pta -pipe \
 				-Wall -Wextra -Wundef -Wpointer-arith \
-				-Wcast-align -Wno-shadow \
+				-Wcast-align -Wno-shadow -Wno-reorder \
 				-D__WIIU__ -D__WUT__ \
 				-Wno-trigraphs $(ROMFS_CFLAGS)
 

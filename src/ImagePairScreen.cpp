@@ -1,6 +1,6 @@
 #include <ImagePairScreen.h>
 
-void ImagePairScreen::handleEvent(SDL_Event &event) {
+void ImagePairScreen::handleEvent(const SDL_Event &event) {
     arrowButton.handleEvent(event);
 }
 
@@ -33,6 +33,12 @@ void ImagePairScreen::render() {
 
     SDL_RenderCopy(renderer, imagesPair->textureTV, nullptr, &fullscreenTVRect);
     SDL_RenderCopy(renderer, imagesPair->textureDRC, nullptr, &fullscreenDRCRect);
+
+    if (arrowButton.isAnimationInProgress()) {
+        arrowButton.update();
+        arrowButton.render(renderer);
+        return;
+    }
 
     if (arrowVisible) {
         if (imageState == SingleImageState::TV) {
