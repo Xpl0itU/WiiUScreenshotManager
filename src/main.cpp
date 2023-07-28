@@ -412,7 +412,7 @@ int main() {
         pressedBack = true;
     });
 
-    Button largeCornerButton(SCREEN_WIDTH - 512, 0, 512, 256, BUTTON_X " Delete", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
+    Button largeCornerButton(SCREEN_WIDTH - 512, 0, 512, 256, BUTTON_X " Select", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
     largeCornerButton.setOnClick([&]() {
         if (images.empty()) {
             return;
@@ -726,9 +726,11 @@ int main() {
                     cornerButton.render(renderer);
                     SDL_RenderCopy(renderer, backGraphicTexture.texture, nullptr, &backGraphicTexture.rect);
                     largeCornerButton.setTextColor(SCREEN_COLOR_WHITE);
+                    largeCornerButton.setText(BUTTON_X " Delete");
                 } else {
                     SDL_SetTextureColorMod(largeCornerButtonTexture, 255, 255, 255);
                     largeCornerButton.setTextColor(SCREEN_COLOR_BLACK);
+                    largeCornerButton.setText(BUTTON_X " Select");
                 }
                 largeCornerButton.render(renderer);
                 drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
