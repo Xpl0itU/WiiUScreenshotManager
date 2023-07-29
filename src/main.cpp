@@ -673,6 +673,7 @@ int main() {
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
+                SDL_RenderPresent(renderer);
             } else {
                 SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
                 SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
