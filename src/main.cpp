@@ -585,7 +585,7 @@ int main() {
 
                         newRow = std::max(0, std::min(newRow, (int) ((images.size() - 1) / GRID_SIZE)));
 
-                        selectedImageIndex = newRow * GRID_SIZE + (initialSelectedImageIndex % GRID_SIZE);
+                        selectedImageIndex = std::clamp(newRow * GRID_SIZE + (initialSelectedImageIndex % GRID_SIZE), 0, (int) images.size() - 1);
 
                         initialTouchY = y;
                     }
