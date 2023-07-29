@@ -45,12 +45,12 @@ void ImagePairScreen::render() {
             arrowRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
             arrowButton.setRect(arrowRect);
             arrowButton.setFlip(SDL_FLIP_NONE);
-            arrowButton.setButton(0xe);
+            arrowButton.setButton(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
         } else {
             arrowRect.x = 0;
             arrowButton.setRect(arrowRect);
             arrowButton.setFlip(SDL_FLIP_HORIZONTAL);
-            arrowButton.setButton(0xc);
+            arrowButton.setButton(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
         }
         arrowButton.render(renderer);
     }

@@ -23,15 +23,15 @@ void Button::handleEvent(const SDL_Event &event) {
             }
             break;
         }
-        case SDL_JOYBUTTONDOWN: {
-            if (event.jbutton.button == button) {
+        case SDL_CONTROLLERBUTTONDOWN: {
+            if (event.cbutton.button == button) {
                 pressed = true;
                 animationQueue.push({AnimationType::EXPAND, 0});
             }
             break;
         }
-        case SDL_JOYBUTTONUP: {
-            if (event.jbutton.button == button) {
+        case SDL_CONTROLLERBUTTONUP: {
+            if (event.cbutton.button == button) {
                 if (pressed) {
                     pressed = false;
                     animationQueue.push({AnimationType::CONTRACT, 0});

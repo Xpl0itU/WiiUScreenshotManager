@@ -287,12 +287,22 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const
     return imagePairs;
 }
 
+SDL_GameController *findController() {
+    for (int i = 0; i < SDL_NumJoysticks(); i++) {
+        if (SDL_IsGameController(i)) {
+            return SDL_GameControllerOpen(i);
+        }
+    }
+
+    return nullptr;
+}
+
 int main() {
     FSInit();
     AXInit();
     AXQuit();
     State::init();
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
 
     romfsInit();
@@ -405,20 +415,13 @@ int main() {
     });
     largeCornerButton.setFlip((SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
 
-    SDL_InitSubSystem(SDL_INIT_JOYSTICK);
-    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (SDL_JoystickOpen(i) == nullptr) {
-            SDL_Quit();
-            return 1;
-        }
-    }
+    SDL_GameController *controller = findController();
 
     bool isCameraScrolling = false;
     bool selectedImage = false;
     int initialTouchY = -1;
     int initialSelectedImageIndex;
     SDL_Event event;
-    SDL_Joystick *j;
     ImagePairScreen imagePairScreen(nullptr, arrowTexture, renderer);
     initializeGhostPointerTexture(renderer);
     while (State::AppRunning()) {
@@ -432,17 +435,20 @@ int main() {
                 imagePairScreen.handleEvent(event);
             }
             switch (event.type) {
-                case SDL_JOYDEVICEADDED:
-                    j = SDL_JoystickOpen(event.jdevice.which);
-                    break;
-                case SDL_JOYDEVICEREMOVED:
-                    j = SDL_JoystickFromInstanceID(event.jdevice.which);
-                    if (j && SDL_JoystickGetAttached(j)) {
-                        SDL_JoystickClose(j);
+                case SDL_CONTROLLERDEVICEADDED:
+                    if (!controller) {
+                        controller = SDL_GameControllerOpen(event.cdevice.which);
                     }
                     break;
-                case SDL_JOYBUTTONDOWN:
-                    switch (event.jbutton.button) {
+                case SDL_CONTROLLERDEVICEREMOVED:
+                    if (controller && event.cdevice.which == SDL_JoystickInstanceID(
+                                                                     SDL_GameControllerGetJoystick(controller))) {
+                        SDL_GameControllerClose(controller);
+                        controller = findController();
+                    }
+                    break;
+                case SDL_CONTROLLERBUTTONDOWN:
+                    switch (event.cbutton.button) {
                         case SDL_CONTROLLER_BUTTON_A:
                             if (!images.empty()) {
                                 if (state == MenuState::SelectImagesDelete) {
@@ -453,7 +459,7 @@ int main() {
                                 }
                             }
                             break;
-                        case 0xd: // SDL_CONTROLLER_BUTTON_DPAD_UP
+                        case SDL_CONTROLLER_BUTTON_DPAD_UP:
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex >= GRID_SIZE) {
                                     selectedImageIndex -= GRID_SIZE;
@@ -470,7 +476,7 @@ int main() {
                                 }
                             }
                             break;
-                        case 0xf: // SDL_CONTROLLER_BUTTON_DPAD_DOWN
+                        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
                                     selectedImageIndex += GRID_SIZE;
@@ -492,14 +498,14 @@ int main() {
                                 }
                             }
                             break;
-                        case 0xc: // SDL_CONTROLLER_BUTTON_DPAD_LEFT
+                        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex % GRID_SIZE != 0) {
                                     selectedImageIndex--;
                                 }
                             }
                             break;
-                        case 0xe: // SDL_CONTROLLER_BUTTON_DPAD_RIGHT
+                        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex % GRID_SIZE != GRID_SIZE - 1 && selectedImageIndex < static_cast<int>(images.size()) - 1) {
                                     selectedImageIndex++;
