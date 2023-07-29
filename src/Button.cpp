@@ -69,7 +69,16 @@ void Button::render(SDL_Renderer *renderer) const {
     }
 
     if (flip == (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL)) {
-        FC_DrawColor(font, renderer, buttonRect.x + (buttonRect.w / 2), (buttonRect.y + (buttonRect.h / 2)) - 100, textColor, text.c_str());
+        int textWidth = FC_GetWidth(font, text.c_str());
+        int textHeight = FC_GetHeight(font, text.c_str());
+
+        int textX = (x + (width - textWidth) / 3) - 50;
+        int textY = (y + (height - textHeight)) - 40;
+
+        textX = x + width - (textX - x) - textWidth;
+        textY = y + height - (textY - y) - textHeight;
+
+        FC_DrawColor(font, renderer, textX, textY, textColor, text.c_str());
     } else {
         FC_DrawColor(font, renderer, x + (width - FC_GetWidth(font, text.c_str())) / 2, y + (height - FC_GetHeight(font, text.c_str())) / 2, textColor, text.c_str());
     }
