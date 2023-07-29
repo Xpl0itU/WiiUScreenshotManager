@@ -239,7 +239,7 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     return static_cast<bool>(resultCode);
 }
 
-std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryPath, int offsetX, int offsetY) {
+std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY) {
     std::vector<ImagesPair> imagePairs;
     int pairIndex = 1;
 
@@ -270,8 +270,8 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(const std::string &directoryP
         if ((tvPath.empty() || std::filesystem::exists(tvPath)) || (drcPath.empty() || std::filesystem::exists(drcPath))) {
             ImagesPair imgPair;
 
-            imgPair.textureTV = nullptr;
-            imgPair.textureDRC = nullptr;
+            imgPair.textureTV = loadTexture(renderer, tvPath);
+            imgPair.textureDRC = loadTexture(renderer, drcPath);
 
             imgPair.x = offsetX + (pairIndex - 1) % GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
             imgPair.y = offsetY + (pairIndex - 1) / GRID_SIZE * (IMAGE_WIDTH + SEPARATION);
@@ -299,7 +299,7 @@ int main() {
     romfsInit();
 
     SDL_Window *window = SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     void *ttf;
     size_t size;
@@ -327,7 +327,7 @@ int main() {
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
 
-    std::vector<ImagesPair> images = scanImagePairsInSubfolders(imagePath, offsetX, offsetY);
+    std::vector<ImagesPair> images = scanImagePairsInSubfolders(renderer, imagePath, offsetX, offsetY);
 
     int selectedImageIndex = 0;
     int scrollOffsetY = 0;
@@ -681,12 +681,6 @@ int main() {
                 FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
                 for (size_t i = 0; i < images.size(); ++i) {
                     if (isImageVisible(images[i], scrollOffsetY)) {
-                        if ((images[i].textureTV == nullptr)) {
-                            images[i].textureTV = loadTexture(renderer, images[i].pathTV);
-                        }
-                        if ((images[i].textureDRC == nullptr)) {
-                            images[i].textureDRC = loadTexture(renderer, images[i].pathDRC);
-                        }
                         SDL_Rect destRectTV = {images[i].x, headerTexture.rect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
                         SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.rect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
                         if (images[i].selected) {
@@ -702,15 +696,6 @@ int main() {
                         SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
                         if (state == MenuState::SelectImagesDelete) {
                             drawOrb(renderer, images[i].x - 10, headerTexture.rect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
-                        }
-                    } else {
-                        if (images[i].textureTV && images[i].textureTV != blackTexture.texture) {
-                            SDL_DestroyTexture(images[i].textureTV);
-                            images[i].textureTV = nullptr;
-                        }
-                        if (images[i].textureDRC && images[i].textureDRC != blackTexture.texture) {
-                            SDL_DestroyTexture(images[i].textureDRC);
-                            images[i].textureDRC = nullptr;
                         }
                     }
                 }
