@@ -415,6 +415,7 @@ int main() {
     }
 
     bool isCameraScrolling = false;
+    bool selectedImage = false;
     int initialTouchY = -1;
     int initialSelectedImageIndex;
     SDL_Event event;
@@ -519,13 +520,10 @@ int main() {
                     initialSelectedImageIndex = selectedImageIndex;
                     pointerTrail.clear();
                     if (state == MenuState::ShowAllImages) {
-                        bool selectedImage = false;
                         for (auto image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
-                                state = MenuState::ShowSingleImage;
-                                imagePairScreen.setImagePair(&images[selectedImageIndex]);
-                                selectedImage = true;
+                                initialSelectedImageIndex = selectedImageIndex;
                                 break;
                             }
                         }
@@ -544,8 +542,18 @@ int main() {
                     }
                     break;
                 case SDL_FINGERUP:
+                    x = event.tfinger.x * SCREEN_WIDTH;
+                    y = event.tfinger.y * SCREEN_HEIGHT;
                     initialTouchY = -1;
                     isCameraScrolling = false;
+                    selectedImage = false;
+                    if (state == MenuState::ShowAllImages) {
+                        if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY)) {
+                            state = MenuState::ShowSingleImage;
+                            imagePairScreen.setImagePair(&images[selectedImageIndex]);
+                            selectedImage = true;
+                        }
+                    }
                     break;
                 case SDL_FINGERMOTION:
                     x = event.tfinger.x * SCREEN_WIDTH;
