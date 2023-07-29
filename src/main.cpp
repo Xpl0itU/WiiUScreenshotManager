@@ -228,15 +228,14 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
         nn::erreula::DrawDRC();
         SDL_RenderPresent(renderer);
     }
+    bool selectedOk = nn::erreula::IsDecideSelectRightButtonError();
     nn::erreula::Destroy();
     MEMFreeToDefaultHeap(createArg.workMemory);
 
     FSDelClient(fsClient, FS_ERROR_FLAG_NONE);
     MEMFreeToDefaultHeap(fsClient);
 
-    int32_t resultCode = nn::erreula::GetResultCode();
-
-    return static_cast<bool>(resultCode);
+    return selectedOk;
 }
 
 std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY) {
