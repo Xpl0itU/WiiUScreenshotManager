@@ -3,7 +3,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
-#include <StateUtils.h>
 #include <algorithm>
 #include <chrono>
 #include <coreinit/filesystem.h>
@@ -186,7 +185,7 @@ void drawOrb(SDL_Renderer *renderer, int x, int y, int size, bool selected) {
     }
 }
 
-bool showConfirmationDialog(SDL_Renderer *renderer) {
+bool showConfirmationDialog(SDL_Renderer *renderer, bool *quit) {
     FSClient *fsClient = (FSClient *) MEMAllocFromDefaultHeap(sizeof(FSClient));
     FSAddClient(fsClient, FS_ERROR_FLAG_NONE);
 
@@ -207,7 +206,8 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
     appearArg.errorArg.button1Label = u"Cancel";
     appearArg.errorArg.button2Label = u"Confirm";
     nn::erreula::AppearErrorViewer(appearArg);
-    while (State::AppRunning()) {
+    SDL_Event event;
+    while (!*quit) {
         VPADStatus vpadStatus;
         VPADRead(VPAD_CHAN_0, &vpadStatus, 1, nullptr);
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &vpadStatus.tpNormal, &vpadStatus.tpNormal);
@@ -220,13 +220,23 @@ bool showConfirmationDialog(SDL_Renderer *renderer) {
         controllerInfo.kpad[3] = nullptr;
         nn::erreula::Calc(controllerInfo);
 
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                *quit = true;
+                nn::erreula::DisappearErrorViewer();
+                break;
+            }
+        }
+        if (*quit) {
+            break;
+        }
         if (nn::erreula::IsDecideSelectButtonError()) {
             nn::erreula::DisappearErrorViewer();
             break;
         }
+        SDL_RenderPresent(renderer);
         nn::erreula::DrawTV();
         nn::erreula::DrawDRC();
-        SDL_RenderPresent(renderer);
     }
     bool selectedOk = nn::erreula::IsDecideSelectRightButtonError();
     nn::erreula::Destroy();
@@ -301,7 +311,6 @@ int main() {
     FSInit();
     AXInit();
     AXQuit();
-    State::init();
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
 
@@ -417,6 +426,7 @@ int main() {
 
     SDL_GameController *controller = findController();
 
+    bool quit = false;
     bool isCameraScrolling = false;
     bool selectedImage = false;
     int initialTouchY = -1;
@@ -424,7 +434,7 @@ int main() {
     SDL_Event event;
     ImagePairScreen imagePairScreen(nullptr, arrowTexture, renderer);
     initializeGhostPointerTexture(renderer);
-    while (State::AppRunning()) {
+    while (!quit) {
         deleteImagesSelected = false;
         pressedBack = false;
         while (SDL_PollEvent(&event)) {
@@ -435,6 +445,9 @@ int main() {
                 imagePairScreen.handleEvent(event);
             }
             switch (event.type) {
+                case SDL_QUIT:
+                    quit = true;
+                    break;
                 case SDL_CONTROLLERDEVICEADDED:
                     if (!controller) {
                         controller = SDL_GameControllerOpen(event.cdevice.which);
@@ -601,7 +614,7 @@ int main() {
         }
 
         if (deleteImagesSelected) {
-            if (showConfirmationDialog(renderer)) {
+            if (showConfirmationDialog(renderer, &quit)) {
                 if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
                     std::vector<ImagesPair> removedImages;
                     for (auto &image : images) {
@@ -797,8 +810,6 @@ int main() {
     FSShutdown();
 
     romfsExit();
-
-    State::shutdown();
 
     return 0;
 }
