@@ -8,6 +8,7 @@
 #include <coreinit/filesystem.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
+#include <coreinit/thread.h>
 #include <filesystem>
 #include <iostream>
 #include <nn/erreula.h>
@@ -19,21 +20,22 @@
 #include <vector>
 #include <vpad/input.h>
 
-#define GRID_SIZE           4
-#define IMAGE_WIDTH         SCREEN_WIDTH / GRID_SIZE / 2
-#define IMAGE_HEIGHT        SCREEN_HEIGHT / GRID_SIZE / 2
-#define SEPARATION          IMAGE_WIDTH / 4
-#define FONT_SIZE           36
-#define TRAIL_LENGTH        20
-#define SCREEN_COLOR_BLACK  ((SDL_Color){.r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF})
-#define SCREEN_COLOR_WHITE  ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
-#define SCREEN_COLOR_YELLOW ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF})
-#define SCREEN_COLOR_D_RED  ((SDL_Color){.r = 0x7F, .g = 0x00, .b = 0x00, .a = 0xFF})
-#define SCREEN_COLOR_GRAY   ((SDL_Color){.r = 0x6A, .g = 0x6A, .b = 0x6A, .a = 0xFF})
-#define BUTTON_A            "\uE000"
-#define BUTTON_B            "\uE001"
-#define BUTTON_X            "\uE002"
-#define BUTTON_DPAD         "\uE07D"
+#define GRID_SIZE            4
+#define IMAGE_WIDTH          SCREEN_WIDTH / GRID_SIZE / 2
+#define IMAGE_HEIGHT         SCREEN_HEIGHT / GRID_SIZE / 2
+#define SEPARATION           IMAGE_WIDTH / 4
+#define FONT_SIZE            36
+#define TRAIL_LENGTH         20
+#define SCREEN_COLOR_BLACK   ((SDL_Color){.r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF})
+#define SCREEN_COLOR_WHITE   ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF})
+#define SCREEN_COLOR_YELLOW  ((SDL_Color){.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF})
+#define SCREEN_COLOR_D_RED   ((SDL_Color){.r = 0x7F, .g = 0x00, .b = 0x00, .a = 0xFF})
+#define SCREEN_COLOR_GRAY    ((SDL_Color){.r = 0x6A, .g = 0x6A, .b = 0x6A, .a = 0xFF})
+#define BUTTON_A             "\uE000"
+#define BUTTON_B             "\uE001"
+#define BUTTON_X             "\uE002"
+#define BUTTON_DPAD          "\uE07D"
+#define THREAD_PRIORITY_HIGH 13
 
 enum class MenuState {
     ShowAllImages,
@@ -318,6 +320,8 @@ int main() {
 
     SDL_Window *window = SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+    OSSetThreadPriority(OSGetCurrentThread(), THREAD_PRIORITY_HIGH);
 
     void *ttf;
     size_t size;
