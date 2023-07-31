@@ -542,7 +542,7 @@ int main() {
                     initialSelectedImageIndex = selectedImageIndex;
                     pointerTrail.clear();
                     if (state == MenuState::ShowAllImages) {
-                        for (auto image : images) {
+                        for (const auto &image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 initialSelectedImageIndex = selectedImageIndex;
@@ -553,7 +553,7 @@ int main() {
                             isCameraScrolling = true;
                         }
                     } else if (state == MenuState::SelectImagesDelete) {
-                        for (auto image : images) {
+                        for (const auto &image : images) {
                             if (isPointInsideRect(x, y, IMAGE_WIDTH, IMAGE_HEIGHT, image.x, headerTexture.rect.h + image.y + scrollOffsetY)) {
                                 selectedImageIndex = static_cast<int>(std::distance(images.begin(), std::find(images.begin(), images.end(), image)));
                                 images[selectedImageIndex].selected = !images[selectedImageIndex].selected;
@@ -640,7 +640,7 @@ int main() {
                             }
                         }
                     }
-                    for (auto &image : removedImages) {
+                    for (const auto &image : removedImages) {
                         auto it = std::find(images.begin(), images.end(), image);
                         if (it != images.end()) {
                             images.erase(it);
@@ -702,23 +702,23 @@ int main() {
                 SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
                 SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
                 FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
-                for (size_t i = 0; i < images.size(); ++i) {
-                    if (isImageVisible(images[i], scrollOffsetY)) {
-                        SDL_Rect destRectTV = {images[i].x, headerTexture.rect.h + images[i].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
-                        SDL_Rect destRectDRC = {images[i].x + IMAGE_WIDTH / 2, headerTexture.rect.h + images[i].y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
-                        if (images[i].selected) {
-                            SDL_SetTextureColorMod(images[i].textureTV, 0, 255, 0);
-                            SDL_SetTextureColorMod(images[i].textureDRC, 0, 255, 0);
+                for (const auto &image : images) {
+                    if (isImageVisible(image, scrollOffsetY)) {
+                        SDL_Rect destRectTV = {image.x, headerTexture.rect.h + image.y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
+                        SDL_Rect destRectDRC = {image.x + IMAGE_WIDTH / 2, headerTexture.rect.h + image.y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
+                        if (image.selected) {
+                            SDL_SetTextureColorMod(image.textureTV, 0, 255, 0);
+                            SDL_SetTextureColorMod(image.textureDRC, 0, 255, 0);
                         } else {
-                            SDL_SetTextureColorMod(images[i].textureTV, 255, 255, 255);
-                            SDL_SetTextureColorMod(images[i].textureDRC, 255, 255, 255);
+                            SDL_SetTextureColorMod(image.textureTV, 255, 255, 255);
+                            SDL_SetTextureColorMod(image.textureDRC, 255, 255, 255);
                         }
-                        SDL_SetTextureBlendMode(images[i].textureTV, SDL_BLENDMODE_BLEND);
-                        SDL_SetTextureBlendMode(images[i].textureDRC, SDL_BLENDMODE_BLEND);
-                        SDL_RenderCopy(renderer, images[i].textureTV, nullptr, &destRectTV);
-                        SDL_RenderCopy(renderer, images[i].textureDRC, nullptr, &destRectDRC);
+                        SDL_SetTextureBlendMode(image.textureTV, SDL_BLENDMODE_BLEND);
+                        SDL_SetTextureBlendMode(image.textureDRC, SDL_BLENDMODE_BLEND);
+                        SDL_RenderCopy(renderer, image.textureTV, nullptr, &destRectTV);
+                        SDL_RenderCopy(renderer, image.textureDRC, nullptr, &destRectDRC);
                         if (state == MenuState::SelectImagesDelete) {
-                            drawOrb(renderer, images[i].x - 10, headerTexture.rect.h + images[i].y + scrollOffsetY - 10, 60, images[i].selected);
+                            drawOrb(renderer, image.x - 10, headerTexture.rect.h + image.y + scrollOffsetY - 10, 60, image.selected);
                         }
                     }
                 }
