@@ -72,7 +72,7 @@ void Button::render(SDL_Renderer *renderer) const {
         int textWidth = FC_GetWidth(font, text.c_str());
         int textHeight = FC_GetHeight(font, text.c_str());
 
-        int textX = (x + (width - textWidth) / 3) - 50;
+        int textX = (x + (width - textWidth) / 3);
         int textY = (y + (height - textHeight)) - 40;
 
         textX = x + width - (textX - x) - textWidth;

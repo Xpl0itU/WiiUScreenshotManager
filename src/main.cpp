@@ -411,7 +411,7 @@ int main() {
         pressedBack = true;
     });
 
-    Button largeCornerButton(SCREEN_WIDTH - 768, 0, 768, 300, BUTTON_X " Select", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
+    Button largeCornerButton(SCREEN_WIDTH - 470, 0, 470, 160, BUTTON_X " Select", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
     largeCornerButton.setOnClick([&]() {
         if (images.empty()) {
             return;
