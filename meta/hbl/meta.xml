@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+    <name>Screenshot Manager</name>
+    <coder>DaThinkingChair</coder>
+    <version>1.21</version>
+    <release_date>20220731000000</release_date>
+    <short_description>Screenshot Manager</short_description>
+    <long_description>Screenshot Manager
+
+        Use this tool to manage your screenshots taken with the Screenshot Plugin on Aroma.
+    </long_description>
+    <category>tool</category>
+    <url>https://github.com/Xpl0itU/WiiUScreenshotManager/releases</url>
+</app>

@@ -20,7 +20,7 @@ jobs:
           docker build . --file Dockerfile --tag builder
       - name: Build artifacts
         run: |
-          docker run --rm -v ${PWD}:/project builder make -j$(nproc)
+          docker run --rm -v ${PWD}:/project builder make -j$(nproc) release
       - name: Upload Artifact
         uses: ncipollo/release-action@v1
         with:
@@ -29,5 +29,5 @@ jobs:
           omitBody: True
           omitBodyDuringUpdate: True
           omitNameDuringUpdate: True
-          artifacts: "WiiUScreenshotManager.rpx"
+          artifacts: "ScreenshotManager*.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
