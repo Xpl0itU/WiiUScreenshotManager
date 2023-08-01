@@ -63,7 +63,7 @@ SDL_Texture *ghostPointerTexture = nullptr;
 SDL_Texture *cornerButtonTexture = nullptr;
 SDL_Texture *largeCornerButtonTexture = nullptr;
 SDL_Texture *arrowTexture = nullptr;
-Texture blackTexture;
+SDL_Texture *blackTexture = nullptr;
 Texture headerTexture;
 Texture backgroundTexture;
 Texture backGraphicTexture;
@@ -141,7 +141,7 @@ SDL_Texture *loadTexture(SDL_Renderer *renderer, const std::string path) {
     if (texture) {
         return texture;
     }
-    return blackTexture.texture;
+    return blackTexture;
 }
 
 void drawRectFilled(SDL_Renderer *renderer, int x, int y, int w, int h, SDL_Color color) {
@@ -343,8 +343,8 @@ int main() {
     int offsetX = (SCREEN_WIDTH - totalWidth) / 2;
     int offsetY = (SCREEN_HEIGHT - totalHeight) / 2;
 
-    blackTexture.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
-    SDL_SetRenderTarget(renderer, blackTexture.texture);
+    blackTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 800, 600);
+    SDL_SetRenderTarget(renderer, blackTexture);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
@@ -630,11 +630,11 @@ int main() {
                             if (!image.pathDRC.empty()) {
                                 std::filesystem::remove(image.pathDRC);
                             }
-                            if (image.textureTV && image.textureTV != blackTexture.texture) {
+                            if (image.textureTV && image.textureTV != blackTexture) {
                                 SDL_DestroyTexture(image.textureTV);
                                 image.textureTV = nullptr;
                             }
-                            if (image.textureDRC && image.textureDRC != blackTexture.texture) {
+                            if (image.textureDRC && image.textureDRC != blackTexture) {
                                 SDL_DestroyTexture(image.textureDRC);
                                 image.textureDRC = nullptr;
                             }
@@ -771,8 +771,8 @@ int main() {
             SDL_DestroyTexture(img.textureDRC);
         }
     }
-    if (blackTexture.texture) {
-        SDL_DestroyTexture(blackTexture.texture);
+    if (blackTexture) {
+        SDL_DestroyTexture(blackTexture);
     }
     if (arrowTexture) {
         SDL_DestroyTexture(arrowTexture);
