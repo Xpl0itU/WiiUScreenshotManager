@@ -410,7 +410,7 @@ int main() {
     bool pressedBack = false;
     bool deleteImagesSelected = false;
 
-    Button cornerButton(0, SCREEN_HEIGHT - 256, 256, 256, "", cornerButtonTexture, font, SDL_CONTROLLER_BUTTON_B, SCREEN_COLOR_WHITE);
+    Button cornerButton(0, SCREEN_HEIGHT - 137, 185, 137, "", cornerButtonTexture, font, SDL_CONTROLLER_BUTTON_B, SCREEN_COLOR_WHITE);
     cornerButton.setOnClick([&]() {
         pressedBack = true;
     });

@@ -12,14 +12,34 @@ void Button::handleEvent(const SDL_Event &event) {
             if (touchX >= x && touchX <= x + width && touchY >= y && touchY <= y + height) {
                 pressed = true;
                 animationQueue.push({AnimationType::EXPAND, 0});
+            } else if (pressed) {
+                pressed = false;
+                animationQueue.push({AnimationType::CONTRACT, 0});
             }
             break;
         }
         case SDL_FINGERUP: {
-            if (pressed) {
+            int touchX = static_cast<int>(event.tfinger.x * screenWidth);
+            int touchY = static_cast<int>(event.tfinger.y * screenHeight);
+            if (pressed && (touchX >= x && touchX <= x + width && touchY >= y && touchY <= y + height)) {
                 pressed = false;
                 animationQueue.push({AnimationType::CONTRACT, 0});
                 onClick();
+            } else if (pressed) {
+                pressed = false;
+                animationQueue.push({AnimationType::CONTRACT, 0});
+            }
+            break;
+        }
+        case SDL_FINGERMOTION: {
+            int touchX = static_cast<int>(event.tfinger.x * screenWidth);
+            int touchY = static_cast<int>(event.tfinger.y * screenHeight);
+            if (pressed && !(touchX >= x && touchX <= x + width && touchY >= y && touchY <= y + height)) {
+                pressed = false;
+                animationQueue.push({AnimationType::CONTRACT, 0});
+            } else if (!pressed && (touchX >= x && touchX <= x + width && touchY >= y && touchY <= y + height)) {
+                pressed = true;
+                animationQueue.push({AnimationType::EXPAND, 0});
             }
             break;
         }
