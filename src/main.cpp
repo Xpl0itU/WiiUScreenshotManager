@@ -10,6 +10,7 @@
 #include <coreinit/memory.h>
 #include <coreinit/thread.h>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <nn/erreula.h>
 #include <romfs-wiiu.h>
@@ -64,6 +65,7 @@ SDL_Texture *cornerButtonTexture = nullptr;
 SDL_Texture *largeCornerButtonTexture = nullptr;
 SDL_Texture *arrowTexture = nullptr;
 SDL_Texture *blackTexture = nullptr;
+SDL_Texture *placeholderTexture = nullptr;
 Texture headerTexture;
 Texture backgroundTexture;
 Texture backGraphicTexture;
@@ -103,6 +105,30 @@ Particle generateParticle(float x, float y) {
     particle.size = (rand() % 20) + 10;
 
     return particle;
+}
+
+void renderBackgroundParticles(SDL_Renderer *renderer, std::vector<Particle> &particles, SDL_Texture *particleTexture) {
+    if (rand() % 10 == 0) {
+        float x = static_cast<float>(rand() % SCREEN_WIDTH);
+        float y = static_cast<float>(rand() % SCREEN_HEIGHT);
+        particles.push_back(generateParticle(x, y));
+    }
+    for (auto it = particles.begin(); it != particles.end();) {
+        Particle &particle = *it;
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.lifetime--;
+        particle.rect = {static_cast<int>(particle.x), static_cast<int>(particle.y), particle.size, particle.size};
+
+        if (particle.lifetime <= 0) {
+            it = particles.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const Particle &particle : particles) {
+        SDL_RenderCopy(renderer, particleTexture, nullptr, &particle.rect);
+    }
 }
 
 void initializeGhostPointerTexture(SDL_Renderer *renderer) {
@@ -250,7 +276,7 @@ bool showConfirmationDialog(SDL_Renderer *renderer, bool *quit) {
     return selectedOk;
 }
 
-std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY) {
+std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY, int *totalImages) {
     std::vector<ImagesPair> imagePairs;
     int pairIndex = 1;
 
@@ -293,6 +319,7 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const
 
             imagePairs.push_back(imgPair);
             ++pairIndex;
+            ++(*totalImages);
         }
     }
 
@@ -307,6 +334,32 @@ SDL_GameController *findController() {
     }
 
     return nullptr;
+}
+
+void renderHeader(SDL_Renderer *renderer, FC_Font *font, const Texture &headerTexture) {
+    SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
+    SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
+    FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
+}
+
+void renderImage(SDL_Renderer* renderer, const ImagesPair& image, int scrollOffsetY, MenuState state) {
+    SDL_Rect destRectTV = {image.x, headerTexture.rect.h + image.y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
+    SDL_Rect destRectDRC = {image.x + IMAGE_WIDTH / 2, headerTexture.rect.h + image.y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
+    if (image.selected) {
+        SDL_SetTextureColorMod(image.textureTV, 0, 255, 0);
+        SDL_SetTextureColorMod(image.textureDRC, 0, 255, 0);
+    } else {
+        SDL_SetTextureColorMod(image.textureTV, 255, 255, 255);
+        SDL_SetTextureColorMod(image.textureDRC, 255, 255, 255);
+    }
+    SDL_SetTextureBlendMode(image.textureTV, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(image.textureDRC, SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, image.textureTV, nullptr, &destRectTV);
+    SDL_RenderCopy(renderer, image.textureDRC, nullptr, &destRectDRC);
+    if (state == MenuState::SelectImagesDelete) {
+        drawOrb(renderer, image.x - 10, headerTexture.rect.h + image.y + scrollOffsetY - 10, 60, image.selected);
+    }
 }
 
 int main() {
@@ -349,7 +402,12 @@ int main() {
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
 
-    std::vector<ImagesPair> images = scanImagePairsInSubfolders(renderer, imagePath, offsetX, offsetY);
+    placeholderTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, IMAGE_WIDTH, IMAGE_HEIGHT);
+    SDL_SetRenderTarget(renderer, placeholderTexture);
+    SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); // gray
+    SDL_RenderClear(renderer);
+
+    SDL_SetRenderTarget(renderer, nullptr);
 
     int selectedImageIndex = 0;
     int scrollOffsetY = 0;
@@ -414,6 +472,37 @@ int main() {
     cornerButton.setOnClick([&]() {
         pressedBack = true;
     });
+
+    int totalImages = 0;
+    std::vector<ImagesPair> placeholderImages;
+    std::future<std::vector<ImagesPair>> futureImages = std::async(std::launch::async, scanImagePairsInSubfolders, renderer, imagePath, offsetX, offsetY, &totalImages);
+    std::vector<ImagesPair> images;
+
+    while (futureImages.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+        if (placeholderImages.size() < std::clamp(totalImages, 0, GRID_SIZE * GRID_SIZE)) {
+            ImagesPair imgPair;
+            imgPair.textureTV = placeholderTexture;
+            imgPair.textureDRC = placeholderTexture;
+            imgPair.x = offsetX + (placeholderImages.size() % GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
+            imgPair.y = offsetY + (placeholderImages.size() / GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
+            imgPair.selected = false;
+            imgPair.pathTV = "";
+            imgPair.pathDRC = "";
+            placeholderImages.push_back(imgPair);
+        }
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
+        renderBackgroundParticles(renderer, particles, particleTexture);
+        for (const auto &image : placeholderImages) {
+            renderImage(renderer, image, scrollOffsetY, state);
+        }
+        renderHeader(renderer, font, headerTexture);
+        SDL_RenderPresent(renderer);
+    }
+
+    images = futureImages.get();
+    placeholderImages.clear();
+    placeholderImages.shrink_to_fit();
 
     Button largeCornerButton(SCREEN_WIDTH - 470, 0, 470, 160, BUTTON_X " Select", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
     largeCornerButton.setOnClick([&]() {
@@ -672,54 +761,16 @@ int main() {
 
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
-        if (rand() % 10 == 0) {
-            float x = static_cast<float>(rand() % SCREEN_WIDTH);
-            float y = static_cast<float>(rand() % SCREEN_HEIGHT);
-            particles.push_back(generateParticle(x, y));
-        }
-        for (auto it = particles.begin(); it != particles.end();) {
-            Particle &particle = *it;
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            particle.lifetime--;
-            particle.rect = {static_cast<int>(particle.x), static_cast<int>(particle.y), particle.size, particle.size};
-
-            if (particle.lifetime <= 0) {
-                it = particles.erase(it);
-            } else {
-                ++it;
-            }
-        }
-        for (const Particle &particle : particles) {
-            SDL_RenderCopy(renderer, particleTexture, nullptr, &particle.rect);
-        }
+        renderBackgroundParticles(renderer, particles, particleTexture);
         if (state != MenuState::ShowSingleImage) {
             if (images.empty()) {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
                 SDL_RenderPresent(renderer);
             } else {
-                SDL_SetTextureColorMod(headerTexture.texture, 0, 0, 147);
-                SDL_SetTextureBlendMode(headerTexture.texture, SDL_BLENDMODE_BLEND);
-                SDL_RenderCopy(renderer, headerTexture.texture, nullptr, &headerTexture.rect);
-                FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
+                renderHeader(renderer, font, headerTexture);
                 for (const auto &image : images) {
                     if (isImageVisible(image, scrollOffsetY)) {
-                        SDL_Rect destRectTV = {image.x, headerTexture.rect.h + image.y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
-                        SDL_Rect destRectDRC = {image.x + IMAGE_WIDTH / 2, headerTexture.rect.h + image.y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
-                        if (image.selected) {
-                            SDL_SetTextureColorMod(image.textureTV, 0, 255, 0);
-                            SDL_SetTextureColorMod(image.textureDRC, 0, 255, 0);
-                        } else {
-                            SDL_SetTextureColorMod(image.textureTV, 255, 255, 255);
-                            SDL_SetTextureColorMod(image.textureDRC, 255, 255, 255);
-                        }
-                        SDL_SetTextureBlendMode(image.textureTV, SDL_BLENDMODE_BLEND);
-                        SDL_SetTextureBlendMode(image.textureDRC, SDL_BLENDMODE_BLEND);
-                        SDL_RenderCopy(renderer, image.textureTV, nullptr, &destRectTV);
-                        SDL_RenderCopy(renderer, image.textureDRC, nullptr, &destRectDRC);
-                        if (state == MenuState::SelectImagesDelete) {
-                            drawOrb(renderer, image.x - 10, headerTexture.rect.h + image.y + scrollOffsetY - 10, 60, image.selected);
-                        }
+                        renderImage(renderer, image, scrollOffsetY, state);
                     }
                 }
 

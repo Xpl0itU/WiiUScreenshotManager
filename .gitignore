@@ -10,3 +10,4 @@ build/
 *.lst
 romfs/images/
 *.wuhb
+*.zip
