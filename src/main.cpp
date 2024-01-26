@@ -477,18 +477,21 @@ int main() {
     std::vector<ImagesPair> placeholderImages;
     std::future<std::vector<ImagesPair>> futureImages = std::async(std::launch::async, scanImagePairsInSubfolders, renderer, imagePath, offsetX, offsetY, &totalImages);
     std::vector<ImagesPair> images;
+    ImagesPair placeholderImgPair;
+    placeholderImgPair.textureTV = placeholderTexture;
+    placeholderImgPair.textureDRC = placeholderTexture;
+    placeholderImgPair.selected = false;
+    placeholderImgPair.pathTV = "";
+    placeholderImgPair.pathDRC = "";
 
     while (futureImages.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
-        if (placeholderImages.size() < std::clamp(totalImages, 0, GRID_SIZE * GRID_SIZE)) {
-            ImagesPair imgPair;
-            imgPair.textureTV = placeholderTexture;
-            imgPair.textureDRC = placeholderTexture;
-            imgPair.x = offsetX + (placeholderImages.size() % GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
-            imgPair.y = offsetY + (placeholderImages.size() / GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
-            imgPair.selected = false;
-            imgPair.pathTV = "";
-            imgPair.pathDRC = "";
-            placeholderImages.push_back(imgPair);
+        int newImagesFound = totalImages - placeholderImages.size();
+        if (newImagesFound > 0) {
+            for (int i = 0; i < newImagesFound; i++) {
+                placeholderImgPair.x = offsetX + (placeholderImages.size() % GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
+                placeholderImgPair.y = offsetY + (placeholderImages.size() / GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
+                placeholderImages.push_back(placeholderImgPair);
+            }
         }
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
