@@ -37,8 +37,8 @@ DATA		:=	data
 INCLUDES	:=	include
 CONTENT		:=
 ICON		:=	meta/wuhb/icon.png
-TV_SPLASH	:=	meta/wuhb/tv-splash.png
-DRC_SPLASH	:=	meta/wuhb/drc-splash.png
+TV_SPLASH	:=	
+DRC_SPLASH	:=	
 ROMFS 		:= 	romfs
 
 #-------------------------------------------------------------------------------
