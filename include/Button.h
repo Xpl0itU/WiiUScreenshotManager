@@ -65,6 +65,6 @@ private:
     FC_Font *font;
 
     int button;
-    SDL_RendererFlip flip;
+    SDL_RendererFlip flip = SDL_FLIP_NONE;
     SDL_Color textColor;
 };
