@@ -9,3 +9,4 @@ build/
 *.map
 *.lst
 romfs/images/
+*.wuhb
