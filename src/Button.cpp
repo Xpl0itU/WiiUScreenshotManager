@@ -77,11 +77,7 @@ void Button::render(SDL_Renderer *renderer) const {
     SDL_Rect buttonRect = {x, y, width, height};
 
     if (texture) {
-        if (flip != SDL_FLIP_NONE) {
-            SDL_RenderCopyEx(renderer, texture, nullptr, &buttonRect, 0.0, nullptr, flip);
-        } else {
-            SDL_RenderCopy(renderer, texture, nullptr, &buttonRect);
-        }
+        SDL_RenderCopyEx(renderer, texture, nullptr, &buttonRect, 0.0, nullptr, flip);
     } else {
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderFillRect(renderer, &buttonRect);
