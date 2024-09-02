@@ -1,5 +1,6 @@
 #include <Button.h>
 #include <ImagePairScreen.h>
+#include <MutexWrapper.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL_FontCache.h>
@@ -284,7 +285,7 @@ bool showConfirmationDialog(SDL_Renderer *renderer, bool *quit) {
     return selectedOk;
 }
 
-std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY, int *totalImages) {
+std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const std::string &directoryPath, int offsetX, int offsetY, int *totalImages, MutexWrapper totalImagesMutex) {
     std::vector<ImagesPair> imagePairs;
     int pairIndex = 1;
 
@@ -327,7 +328,9 @@ std::vector<ImagesPair> scanImagePairsInSubfolders(SDL_Renderer *renderer, const
 
             imagePairs.push_back(imgPair);
             ++pairIndex;
+            totalImagesMutex.lock();
             ++(*totalImages);
+            totalImagesMutex.unlock();
         }
     }
 
@@ -482,8 +485,11 @@ int main() {
     });
 
     int totalImages = 0;
+    MutexWrapper totalImagesMutex = MutexWrapper();
+    totalImagesMutex.init("totalImages");
+
     std::vector<ImagesPair> placeholderImages;
-    std::future<std::vector<ImagesPair>> futureImages = std::async(std::launch::async, scanImagePairsInSubfolders, renderer, imagePath, offsetX, offsetY, &totalImages);
+    std::future<std::vector<ImagesPair>> futureImages = std::async(std::launch::async, scanImagePairsInSubfolders, renderer, imagePath, offsetX, offsetY, &totalImages, totalImagesMutex);
     std::vector<ImagesPair> images;
     ImagesPair placeholderImgPair;
     placeholderImgPair.textureTV = placeholderTexture;
@@ -493,7 +499,9 @@ int main() {
     placeholderImgPair.pathDRC = "";
 
     while (futureImages.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+        totalImagesMutex.lock();
         int newImagesFound = totalImages - placeholderImages.size();
+        totalImagesMutex.unlock();
         if (newImagesFound > 0) {
             for (int i = 0; i < newImagesFound; i++) {
                 placeholderImgPair.x = offsetX + (placeholderImages.size() % GRID_SIZE) * (IMAGE_WIDTH + SEPARATION);
