@@ -530,6 +530,7 @@ int main() {
     bool quit = false;
     bool isCameraScrolling = false;
     bool selectedImage = false;
+    bool renderHover = true;
     int initialTouchY = -1;
     int initialSelectedImageIndex;
     SDL_Event event;
@@ -562,6 +563,7 @@ int main() {
                     }
                     break;
                 case SDL_CONTROLLERBUTTONDOWN:
+                    renderHover = true;
                     switch (event.cbutton.button) {
                         case SDL_CONTROLLER_BUTTON_A:
                             if (!images.empty()) {
@@ -685,6 +687,7 @@ int main() {
                         pointerTrail.erase(pointerTrail.begin());
                     }
                     if (initialTouchY != -1 && isCameraScrolling) {
+                        renderHover = false;
                         int touchDeltaY = y - initialTouchY;
                         scrollOffsetY += touchDeltaY;
                         int maxScrollOffsetY = (GRID_SIZE - 1) * (IMAGE_HEIGHT + SEPARATION);
@@ -796,7 +799,9 @@ int main() {
                     largeCornerButton.setText(BUTTON_X " Select");
                 }
                 largeCornerButton.render(renderer);
-                drawRect(renderer, images[selectedImageIndex].x - IMAGE_WIDTH * 0.05, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY - IMAGE_HEIGHT * 0.05, IMAGE_WIDTH * 1.1, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
+                if (renderHover) {
+                    drawRect(renderer, images[selectedImageIndex].x - IMAGE_WIDTH * 0.05, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY - IMAGE_HEIGHT * 0.05, IMAGE_WIDTH * 1.1, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
+                }
             }
             if (isCameraScrolling) {
                 renderGhostPointers(renderer, pointerTrail);

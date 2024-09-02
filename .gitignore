@@ -13,3 +13,4 @@ romfs/images/
 *.zip
 .devcontainer
 romfs/screenshots/
+compile-and-run-macos.sh
