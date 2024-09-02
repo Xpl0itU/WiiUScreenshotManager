@@ -56,6 +56,10 @@ CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive -Wno-reorder
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
+ifeq ($(EMU), 1)
+	CXXFLAGS += -DEMU
+endif
+
 LIBS	:= `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image` -lwut -lharfbuzz
 
 include $(PORTLIBS_PATH)/wiiu/share/romfs-wiiu.mk

@@ -11,3 +11,5 @@ build/
 romfs/images/
 *.wuhb
 *.zip
+.devcontainer
+romfs/screenshots/

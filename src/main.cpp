@@ -37,6 +37,11 @@
 #define BUTTON_X             "\uE002"
 #define BUTTON_DPAD          "\uE07D"
 #define THREAD_PRIORITY_HIGH 13
+#ifdef EMU
+#define SCREENSHOT_PATH "romfs:/screenshots/"
+#else
+#define SCREENSHOT_PATH "fs:/vol/external01/wiiu/screenshots/"
+#endif
 
 enum class MenuState {
     ShowAllImages,
@@ -56,7 +61,7 @@ struct Particle {
     SDL_Rect rect;
 };
 
-const std::string imagePath = "fs:/vol/external01/wiiu/screenshots/";
+const std::string imagePath = SCREENSHOT_PATH;
 FC_Font *font = nullptr;
 SDL_Texture *orbTexture = nullptr;
 SDL_Texture *particleTexture = nullptr;
@@ -343,7 +348,7 @@ void renderHeader(SDL_Renderer *renderer, FC_Font *font, const Texture &headerTe
     FC_DrawColor(font, renderer, headerTexture.rect.x + (headerTexture.rect.w / 2), (headerTexture.rect.y + (headerTexture.rect.h / 2)) - 100, SCREEN_COLOR_WHITE, "Album");
 }
 
-void renderImage(SDL_Renderer* renderer, const ImagesPair& image, int scrollOffsetY, MenuState state) {
+void renderImage(SDL_Renderer *renderer, const ImagesPair &image, int scrollOffsetY, MenuState state) {
     SDL_Rect destRectTV = {image.x, headerTexture.rect.h + image.y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT};
     SDL_Rect destRectDRC = {image.x + IMAGE_WIDTH / 2, headerTexture.rect.h + image.y + scrollOffsetY + IMAGE_WIDTH / 2, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2};
     if (image.selected) {
@@ -791,7 +796,7 @@ int main() {
                     largeCornerButton.setText(BUTTON_X " Select");
                 }
                 largeCornerButton.render(renderer);
-                drawRect(renderer, images[selectedImageIndex].x, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY, IMAGE_WIDTH, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
+                drawRect(renderer, images[selectedImageIndex].x - IMAGE_WIDTH * 0.05, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY - IMAGE_HEIGHT * 0.05, IMAGE_WIDTH * 1.1, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
             }
             if (isCameraScrolling) {
                 renderGhostPointers(renderer, pointerTrail);
