@@ -157,11 +157,14 @@ void renderGhostPointers(SDL_Renderer *renderer, const std::vector<SDL_Point> &t
     }
 }
 
-bool isImageVisible(const ImagesPair &image, int scrollOffsetY) {
+bool isImageVisible(const ImagesPair &image, int scrollOffsetY, bool fullyVisible) {
     int imageTop = headerTexture.rect.h + image.y + scrollOffsetY;
     int imageBottom = imageTop + IMAGE_HEIGHT + IMAGE_HEIGHT / 2;
 
-    int screenTop = headerTexture.rect.h;
+    int screenTop = headerTexture.rect.h / 2;
+    if (fullyVisible) {
+        screenTop *= 2;
+    }
     int screenBottom = SCREEN_HEIGHT;
 
     return (imageBottom >= screenTop) && (imageTop <= screenBottom);
@@ -579,7 +582,7 @@ int main() {
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex >= GRID_SIZE) {
                                     selectedImageIndex -= GRID_SIZE;
-                                    if (isFirstRow(selectedImageIndex) || !isImageVisible(images[selectedImageIndex], scrollOffsetY)) {
+                                    if (isFirstRow(selectedImageIndex) || !isImageVisible(images[selectedImageIndex], scrollOffsetY, true)) {
                                         if (scrollOffsetY >= 0) {
                                             scrollOffsetY = 0;
                                         } else {
@@ -596,7 +599,7 @@ int main() {
                             if (state != MenuState::ShowSingleImage) {
                                 if (selectedImageIndex < static_cast<int>(images.size()) - GRID_SIZE) {
                                     selectedImageIndex += GRID_SIZE;
-                                    if (isLastRow(selectedImageIndex, images.size()) || !isImageVisible(images[selectedImageIndex], scrollOffsetY)) {
+                                    if (isLastRow(selectedImageIndex, images.size()) || !isImageVisible(images[selectedImageIndex], scrollOffsetY, true)) {
                                         scrollOffsetY -= IMAGE_WIDTH + SEPARATION;
                                         int lastRow = (images.size() - 1) / GRID_SIZE;
                                         int lastVisibleRow = (lastRow * GRID_SIZE - 1) / GRID_SIZE;
@@ -778,9 +781,8 @@ int main() {
                 FC_Draw(font, renderer, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "No images found");
                 SDL_RenderPresent(renderer);
             } else {
-                renderHeader(renderer, font, headerTexture);
                 for (const auto &image : images) {
-                    if (isImageVisible(image, scrollOffsetY)) {
+                    if (isImageVisible(image, scrollOffsetY, false)) {
                         renderImage(renderer, image, scrollOffsetY, state);
                     }
                 }
@@ -798,6 +800,7 @@ int main() {
                     largeCornerButton.setTextColor(SCREEN_COLOR_BLACK);
                     largeCornerButton.setText(BUTTON_X " Select");
                 }
+                renderHeader(renderer, font, headerTexture);
                 largeCornerButton.render(renderer);
                 if (renderHover) {
                     drawRect(renderer, images[selectedImageIndex].x - IMAGE_WIDTH * 0.05, headerTexture.rect.h + images[selectedImageIndex].y + scrollOffsetY - IMAGE_HEIGHT * 0.05, IMAGE_WIDTH * 1.1, IMAGE_HEIGHT * 1.5, 7, SCREEN_COLOR_YELLOW);
