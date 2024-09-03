@@ -3,6 +3,7 @@
 #include <MutexWrapper.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <SDL_FontCache.h>
 #include <algorithm>
 #include <chrono>
@@ -17,6 +18,7 @@
 #include <romfs-wiiu.h>
 #include <sndcore2/core.h>
 #include <string>
+#include <sys/stat.h>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -76,6 +78,9 @@ Texture headerTexture;
 Texture backgroundTexture;
 Texture backGraphicTexture;
 Texture pointerTexture;
+
+static uint8_t *bgmBuffer = nullptr;
+static Mix_Music *backgroundMusic = nullptr;
 
 std::vector<Particle> particles;
 std::vector<SDL_Point> pointerTrail;
@@ -373,17 +378,53 @@ void renderImage(SDL_Renderer *renderer, const ImagesPair &image, int scrollOffs
     }
 }
 
+int32_t loadFile(const char *fPath, uint8_t **buf) {
+    int ret = 0;
+    FILE *file = fopen(fPath, "rb");
+    if (file != nullptr) {
+        struct stat st {};
+        stat(fPath, &st);
+        int size = st.st_size;
+
+        *buf = (uint8_t *) malloc(size);
+        if (*buf != nullptr) {
+            if (fread(*buf, size, 1, file) == 1)
+                ret = size;
+            else
+                free(*buf);
+        }
+        fclose(file);
+    }
+    return ret;
+}
+
 int main() {
     FSInit();
-    AXInit();
-    AXQuit();
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
+    //AXInit();
+    //AXQuit();
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
+    Mix_Init(MIX_INIT_MP3);
 
     romfsInit();
 
     SDL_Window *window = SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+    int bgMusicFileSize = loadFile("romfs:/bg_music.mp3", &bgmBuffer);
+    if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) == 0) {
+        SDL_RWops *rw = SDL_RWFromMem(bgmBuffer, bgMusicFileSize);
+        backgroundMusic = Mix_LoadMUS_RW(rw, true);
+        if (backgroundMusic != NULL) {
+            Mix_VolumeMusic(SDL_MIX_MAXVOLUME * 0.15);
+            Mix_PlayMusic(backgroundMusic, -1);
+            if (Mix_PlayMusic(backgroundMusic, -1) != 0) {
+                Mix_FreeMusic(backgroundMusic);
+                bgmBuffer = nullptr;
+                Mix_CloseAudio();
+            }
+        }
+    }
 
     OSSetThreadPriority(OSGetCurrentThread(), THREAD_PRIORITY_HIGH);
 
@@ -417,6 +458,9 @@ int main() {
     SDL_SetRenderTarget(renderer, placeholderTexture);
     SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); // gray
     SDL_RenderClear(renderer);
+
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     SDL_SetRenderTarget(renderer, nullptr);
 
@@ -879,6 +923,9 @@ int main() {
 
     FC_FreeFont(font);
     font = nullptr;
+    Mix_FreeMusic(backgroundMusic);
+    bgmBuffer = nullptr;
+    Mix_CloseAudio();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
