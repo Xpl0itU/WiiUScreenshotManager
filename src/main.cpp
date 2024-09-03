@@ -476,13 +476,7 @@ int main() {
     headerTexture.rect = {0, 0, SCREEN_WIDTH, 256};
     pointerTexture.rect = {0, 0, 30, 30};
 
-    bool pressedBack = false;
     bool deleteImagesSelected = false;
-
-    Button cornerButton(0, SCREEN_HEIGHT - 137, 185, 137, "", cornerButtonTexture, font, SDL_CONTROLLER_BUTTON_B, SCREEN_COLOR_WHITE);
-    cornerButton.setOnClick([&]() {
-        pressedBack = true;
-    });
 
     int totalImages = 0;
     MutexWrapper totalImagesMutex = MutexWrapper();
@@ -491,6 +485,18 @@ int main() {
     std::vector<ImagesPair> placeholderImages;
     std::future<std::vector<ImagesPair>> futureImages = std::async(std::launch::async, scanImagePairsInSubfolders, renderer, imagePath, offsetX, offsetY, &totalImages, totalImagesMutex);
     std::vector<ImagesPair> images;
+
+    Button cornerButton(0, SCREEN_HEIGHT - 137, 185, 137, cornerButtonTexture, font, "", SCREEN_COLOR_WHITE);
+    cornerButton.setOnClick([&]() {
+        state = MenuState::ShowAllImages;
+        if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
+            for (auto &image : images) {
+                image.selected = false;
+            }
+        }
+    });
+    cornerButton.setControllerButton(SDL_CONTROLLER_BUTTON_B);
+
     ImagesPair placeholderImgPair;
     placeholderImgPair.textureTV = placeholderTexture;
     placeholderImgPair.textureDRC = placeholderTexture;
@@ -523,7 +529,7 @@ int main() {
     placeholderImages.clear();
     placeholderImages.shrink_to_fit();
 
-    Button largeCornerButton(SCREEN_WIDTH - 470, 0, 470, 160, BUTTON_X " Select", largeCornerButtonTexture, font, SDL_CONTROLLER_BUTTON_X, SCREEN_COLOR_BLACK);
+    Button largeCornerButton(SCREEN_WIDTH - 470, 0, 470, 160, largeCornerButtonTexture, font, BUTTON_X " Select", SCREEN_COLOR_BLACK);
     largeCornerButton.setOnClick([&]() {
         if (images.empty()) {
             return;
@@ -535,6 +541,7 @@ int main() {
         }
     });
     largeCornerButton.setFlip((SDL_RendererFlip) (SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL));
+    largeCornerButton.setControllerButton(SDL_CONTROLLER_BUTTON_X);
 
     SDL_GameController *controller = findController();
 
@@ -549,9 +556,8 @@ int main() {
     initializeGhostPointerTexture(renderer);
     while (!quit) {
         deleteImagesSelected = false;
-        pressedBack = false;
+        int x, y;
         while (SDL_PollEvent(&event)) {
-            int x, y;
             cornerButton.handleEvent(event);
             largeCornerButton.handleEvent(event);
             if (state == MenuState::ShowSingleImage) {
@@ -772,15 +778,6 @@ int main() {
             }
         }
 
-        if (pressedBack) {
-            state = MenuState::ShowAllImages;
-            if (std::any_of(images.begin(), images.end(), [](const ImagesPair &image) { return image.selected; })) {
-                for (auto &image : images) {
-                    image.selected = false;
-                }
-            }
-        }
-
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, backgroundTexture.texture, nullptr, &backgroundTexture.rect);
         renderBackgroundParticles(renderer, particles, particleTexture);
@@ -834,8 +831,8 @@ int main() {
             }
             SDL_RenderPresent(renderer);
         }
-        cornerButton.update();
-        largeCornerButton.update();
+        cornerButton.updateButton(x, y, event.type == SDL_FINGERUP);
+        largeCornerButton.updateButton(x, y, event.type == SDL_FINGERUP);
     }
 
     for (const auto &img : images) {

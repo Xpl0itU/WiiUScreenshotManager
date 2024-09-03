@@ -35,7 +35,7 @@ void ImagePairScreen::render() {
     SDL_RenderCopy(renderer, imagesPair->textureDRC, nullptr, &fullscreenDRCRect);
 
     if (arrowButton.isAnimationInProgress()) {
-        arrowButton.update();
+        arrowButton.updateButton(0, 0, false);
         arrowButton.render(renderer);
         return;
     }
@@ -45,12 +45,12 @@ void ImagePairScreen::render() {
             arrowRect.x = SCREEN_WIDTH - (SCREEN_WIDTH / 3 / 2);
             arrowButton.setRect(arrowRect);
             arrowButton.setFlip(SDL_FLIP_NONE);
-            arrowButton.setButton(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            arrowButton.setControllerButton(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
         } else {
             arrowRect.x = 0;
             arrowButton.setRect(arrowRect);
             arrowButton.setFlip(SDL_FLIP_HORIZONTAL);
-            arrowButton.setButton(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+            arrowButton.setControllerButton(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
         }
         arrowButton.render(renderer);
     }
@@ -66,5 +66,5 @@ void ImagePairScreen::setImagePair(ImagesPair *imagesPair) {
     this->animationStep = 0;
     this->arrowVisible = true;
     this->arrowButton.setRect(arrowRect);
-    this->arrowButton.setButton(0xe);
+    this->arrowButton.setControllerButton((SDL_GameControllerButton) 0xe);
 }

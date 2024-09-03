@@ -30,12 +30,12 @@ class ImagePairScreen {
 public:
     ImagePairScreen(ImagesPair *imagesPair, SDL_Texture *arrowTexture, SDL_Renderer *renderer)
         : imagesPair(imagesPair), arrowTexture(arrowTexture), renderer(renderer), animationSteps(50),
-          animationStep(0), arrowVisible(true), arrowButton(0, (SCREEN_HEIGHT / 2) - 145, 290, 290, "", arrowTexture, nullptr, 0xe, SDL_Color({0, 0, 0, 0})) {
+          animationStep(0), arrowVisible(true), arrowButton(0, (SCREEN_HEIGHT / 2) - 145, 290, 290, arrowTexture, nullptr, "", SDL_Color({0, 0, 0, 0})) {
         fullscreenTVRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         fullscreenDRCRect = {SCREEN_WIDTH, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         arrowButton.setTexture(arrowTexture);
         arrowButton.setRect(arrowRect);
-        arrowButton.setButton(0xe);
+        arrowButton.setControllerButton((SDL_GameControllerButton) 0xe);
         arrowButton.setOnClick([this] {
             if (imageState == SingleImageState::TV) {
                 imageState = SingleImageState::DRC;

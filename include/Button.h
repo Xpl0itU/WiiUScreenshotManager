@@ -8,21 +8,29 @@
 
 class Button {
 public:
-    Button(int x, int y, int width, int height, const std::string &text, SDL_Texture *texture, FC_Font *font, int button, SDL_Color textColor)
-        : x(x), y(y), width(width), height(height), text(text), texture(texture), pressed(false), animationQueue(), maxExpansion(10),
-          originalX(x), originalY(y), originalWidth(width), originalHeight(height), font(font), button(button), textColor(textColor) {}
+    Button(int x, int y, int width, int height, SDL_Texture *texture, FC_Font *font, const std::string &text, SDL_Color textColor);
 
     void handleEvent(const SDL_Event &event);
+
+    void updateButton(int touchX, int touchY, bool isTouched);
 
     using OnClickFunction = std::function<void()>;
 
     void setOnClick(OnClickFunction callback);
 
-    void onClick();
-
     void render(SDL_Renderer *renderer) const;
 
     void update();
+
+    bool isPointInside(int x, int y) const;
+
+    void onStart();
+
+    void onInflate();
+
+    void onInflateRelease();
+
+    void onDeflate();
 
     void setText(std::string text);
 
@@ -34,7 +42,7 @@ public:
 
     void setRect(SDL_Rect rect);
 
-    void setButton(int button);
+    void setControllerButton(SDL_GameControllerButton button);
 
     bool isAnimationInProgress() const;
 
@@ -67,4 +75,12 @@ private:
     int button;
     SDL_RendererFlip flip = SDL_FLIP_NONE;
     SDL_Color textColor;
+
+    float scale;
+    float scalePressed;
+    float touching;
+    float touchDown;
+    float inflated;
+
+    SDL_GameControllerButton controllerButton;
 };
